@@ -221,23 +221,32 @@ class WalkService {
       endTime: DateTime.now(),
     );
 
-    await _walkRepo.saveWalkSession(_currentSession!);
+    // Save the walk session in the foreground
+    final sessionToSave = _currentSession!;
+    final dailyStatToUpdate = _currentDailyStat;
+    final profileToUpdate = _currentUserProfile;
+    final preciseCalories = _preciseCalories;
 
-    if (_currentDailyStat != null) {
-      _currentDailyStat = _currentDailyStat!.copyWith(
-        calories: _currentDailyStat!.calories + _preciseCalories.toInt(),
-      );
-      await _dailyStatRepo.updateDailyStat(_currentDailyStat!);
+    await _walkRepo.saveWalkSession(sessionToSave);
 
-      if (_currentUserProfile != null) {
-        await _rewardService.processWalkCompleted(
-          _currentUserProfile!.uid,
-          _currentSession!,
-          _currentDailyStat!,
-          _currentUserProfile!,
+    // Process everything else in the background so the UI doesn't hang
+    Future.microtask(() async {
+      if (dailyStatToUpdate != null) {
+        final updatedStat = dailyStatToUpdate.copyWith(
+          calories: dailyStatToUpdate.calories + preciseCalories.toInt(),
         );
+        await _dailyStatRepo.updateDailyStat(updatedStat);
+
+        if (profileToUpdate != null) {
+          await _rewardService.processWalkCompleted(
+            profileToUpdate.uid,
+            sessionToSave,
+            updatedStat,
+            profileToUpdate,
+          );
+        }
       }
-    }
+    });
 
     _currentSession = null;
     _currentDailyStat = null;
