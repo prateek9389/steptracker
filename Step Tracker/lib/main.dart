@@ -46,7 +46,7 @@ class StrideAIApp extends ConsumerWidget {
     final themeMode = ref.watch(themeProvider);
 
     return MaterialApp(
-      title: 'StrideAI',
+      title: 'Step Tracker',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
       theme: AppTheme.lightTheme,
