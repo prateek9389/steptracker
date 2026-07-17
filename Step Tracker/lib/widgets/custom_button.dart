@@ -110,22 +110,28 @@ class CustomButton extends StatelessWidget {
                       strokeWidth: 2.5,
                     ),
                   )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (icon != null) ...[
-                        icon!,
-                        const SizedBox(width: 10),
-                      ],
-                      Text(
-                        text,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: textColor,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (icon != null) ...[
+                            icon!,
+                            const SizedBox(width: 8),
+                          ],
+                          Text(
+                            text,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: textColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
           ),
         ),
