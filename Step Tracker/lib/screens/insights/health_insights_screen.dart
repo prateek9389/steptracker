@@ -102,11 +102,11 @@ class HealthInsightsScreen extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildDiagnosticTile('Avg Daily Steps', '9,425 Steps', Icons.directions_walk_rounded, AppColors.primary),
+                        child: _buildDiagnosticTile('Avg Daily Steps', '9,425 Steps', Icons.directions_walk_rounded, AppColors.primary, isDark),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: _buildDiagnosticTile('Best Walk Time', '8:15 AM', Icons.schedule_rounded, AppColors.secondary),
+                        child: _buildDiagnosticTile('Best Walk Time', '8:15 AM', Icons.schedule_rounded, AppColors.secondary, isDark),
                       ),
                     ],
                   ),
@@ -114,11 +114,11 @@ class HealthInsightsScreen extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildDiagnosticTile('Calories Burned', '2,480 kcal', Icons.local_fire_department_rounded, AppColors.danger),
+                        child: _buildDiagnosticTile('Calories Burned', '2,480 kcal', Icons.local_fire_department_rounded, AppColors.danger, isDark),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: _buildDiagnosticTile('Walking Trend', '+12% distance', Icons.trending_up_rounded, AppColors.success),
+                        child: _buildDiagnosticTile('Walking Trend', '+12% distance', Icons.trending_up_rounded, AppColors.success, isDark),
                       ),
                     ],
                   ),
@@ -132,6 +132,7 @@ class HealthInsightsScreen extends StatelessWidget {
                     title: 'Post-Meal Walking Benefit',
                     desc: 'A brief 10-minute walk after lunch can help lower blood glucose levels by up to 22% compared to static rest.',
                     color: AppColors.warning,
+                    isDark: isDark,
                   ),
                   const SizedBox(height: 16),
                   _buildSuggestionItem(
@@ -139,6 +140,7 @@ class HealthInsightsScreen extends StatelessWidget {
                     title: 'Cadence Suggestion',
                     desc: 'To improve aerobic base, try to maintain a step frequency of 100-110 steps/min. Use our Running mode for interval reminders.',
                     color: AppColors.secondary,
+                    isDark: isDark,
                   ),
                 ],
               ),
@@ -149,7 +151,7 @@ class HealthInsightsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDiagnosticTile(String label, String value, IconData icon, Color color) {
+  Widget _buildDiagnosticTile(String label, String value, IconData icon, Color color, bool isDark) {
     return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Column(
@@ -157,9 +159,9 @@ class HealthInsightsScreen extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: 12),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : AppColors.textLight)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: AppColors.textMutedDark, fontSize: 10, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(color: isDark ? AppColors.textMutedDark : AppColors.textMutedLight, fontSize: 10, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -170,6 +172,7 @@ class HealthInsightsScreen extends StatelessWidget {
     required String title,
     required String desc,
     required Color color,
+    required bool isDark,
   }) {
     return GlassCard(
       child: Row(
@@ -185,9 +188,9 @@ class HealthInsightsScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white)),
+                Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : AppColors.textLight)),
                 const SizedBox(height: 6),
-                Text(desc, style: const TextStyle(color: AppColors.textSecondaryDark, fontSize: 12, height: 1.4)),
+                Text(desc, style: TextStyle(color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight, fontSize: 12, height: 1.4)),
               ],
             ),
           ),
