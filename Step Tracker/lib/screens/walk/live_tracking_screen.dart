@@ -52,6 +52,10 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
               onPressed: () async {
                 Navigator.of(context).pop(); // Close dialog
 
+                setState(() {
+                  _isSaving = true;
+                });
+
                 // Snapshot the session NOW before stopWalk() clears it.
                 // stopWalk() only adds endTime and completed status — all the
                 // real metrics (distance, steps, avgSpeed, route…) are already
@@ -90,58 +94,82 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
   }
 
 
+  bool _isSaving = false;
+
   @override
   Widget build(BuildContext context) {
-    final walkSession = ref.watch(activeWalkStreamProvider).value;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final walkService = ref.watch(walkServiceProvider);
+    
+    return StreamBuilder<WalkSession?>(
+      stream: walkService.localSessionStream,
+      initialData: walkService.currentSession,
+      builder: (context, snapshot) {
+        final walkSession = snapshot.data;
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
 
-    if (walkSession == null) {
-      return Scaffold(
-        backgroundColor: isDark ? const Color(0xFF090D16) : Colors.white,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+        if (_isSaving) {
+          return Scaffold(
+            backgroundColor: isDark ? const Color(0xFF090D16) : Colors.white,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary)),
+                  const SizedBox(height: 24),
+                  Text('Saving Workout...', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          );
+        }
+
+        if (walkSession == null) {
+          return Scaffold(
+            backgroundColor: isDark ? const Color(0xFF090D16) : Colors.white,
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 4.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Locating GPS Signal...',
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Outfit',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Establishing connection with satellite sensors...',
+                    style: TextStyle(
+                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final act = walkSession;
+        final isPaused = act.trackingStatus == TrackingStatus.paused;
+
+        return Scaffold(
+          body: Stack(
             children: [
-              const SizedBox(
-                width: 50,
-                height: 50,
-                child: CircularProgressIndicator(
-                  strokeWidth: 4.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Locating GPS Signal...',
-                style: TextStyle(
-                  color: isDark ? Colors.white : Colors.black87,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Outfit',
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Establishing connection with satellite sensors...',
-                style: TextStyle(
-                  color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final act = walkSession;
-    final isPaused = act.trackingStatus == TrackingStatus.paused;
-
-    return Scaffold(
-      body: Stack(
-        children: [
-          // 1. Full Screen Map
+              // 1. Full Screen Map
           Positioned.fill(
             bottom: 290, // Leave room for metrics sheet at bottom
             child: LiveMapCard(
@@ -395,6 +423,8 @@ class _LiveTrackingScreenState extends ConsumerState<LiveTrackingScreen> {
           ),
         ],
       ),
+    );
+      },
     );
   }
 
