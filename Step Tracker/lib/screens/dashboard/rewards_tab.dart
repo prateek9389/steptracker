@@ -195,20 +195,28 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
   }
 
   Widget _buildStatColumn(String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            shape: BoxShape.circle,
+    return Expanded(
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 22),
           ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        const SizedBox(height: 8),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMutedDark, fontWeight: FontWeight.w600)),
-      ],
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMutedDark, fontWeight: FontWeight.w600))
+          ),
+        ],
+      ),
     );
   }
 
@@ -469,10 +477,14 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text(
-                                        'Progress: ${challenge.progress.toStringAsFixed(0)} / ${challenge.target.toStringAsFixed(0)}',
-                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                      Flexible(
+                                        child: Text(
+                                          'Progress: ${challenge.progress.toStringAsFixed(0)} / ${challenge.target.toStringAsFixed(0)}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
+                                      const SizedBox(width: 8),
                                       if (challenge.isCompleted)
                                         const Text(
                                           'Completed',
