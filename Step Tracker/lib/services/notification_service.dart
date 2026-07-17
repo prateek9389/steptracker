@@ -31,7 +31,7 @@ class NotificationService {
     );
 
     await _notificationsPlugin.initialize(
-      initializationSettings,
+      initializationSettings: initializationSettings,
     );
 
     _isInitialized = true;
@@ -58,10 +58,10 @@ class NotificationService {
         NotificationDetails(android: androidPlatformChannelSpecifics);
 
     await _notificationsPlugin.show(
-      id,
-      title,
-      body,
-      platformChannelSpecifics,
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: platformChannelSpecifics,
     );
   }
 }

@@ -62,7 +62,6 @@ class BackgroundTaskService {
       frequency: const Duration(hours: 2),
       initialDelay: const Duration(hours: 2), // First run after 2 hours
       constraints: Constraints(
-        networkType: NetworkType.not_required,
         requiresBatteryNotLow: true,
       ),
     );
