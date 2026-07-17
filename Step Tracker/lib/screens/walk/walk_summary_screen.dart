@@ -77,20 +77,32 @@ class WalkSummaryScreen extends StatelessWidget {
 
                 // Stats Grid
                 GlassCard(
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 2.5,
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
                     children: [
-                      _buildSummaryStat('Distance', '${activity.distanceKm.toStringAsFixed(2)} km', AppColors.secondary),
-                      _buildSummaryStat('Steps Taken', '${activity.steps}', AppColors.primary),
-                      _buildSummaryStat('Duration', activity.durationString, AppColors.accent),
-                      _buildSummaryStat('Calories', '${activity.calories} kcal', AppColors.danger),
-                      _buildSummaryStat('Avg Pace', '${activity.paceString} /km', const Color(0xFF8B5CF6)),
-                      _buildSummaryStat('Avg Speed', '${activity.avgSpeedKmH.toStringAsFixed(1)} km/h', const Color(0xFFF59E0B)),
+                      Row(
+                        children: [
+                          Expanded(child: _buildSummaryStat('Distance', '${activity.distanceKm.toStringAsFixed(2)} km', AppColors.secondary)),
+                          const SizedBox(width: 16),
+                          Expanded(child: _buildSummaryStat('Steps Taken', '${activity.steps}', AppColors.primary)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(child: _buildSummaryStat('Duration', activity.durationString, AppColors.accent)),
+                          const SizedBox(width: 16),
+                          Expanded(child: _buildSummaryStat('Calories', '${activity.calories} kcal', AppColors.danger)),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          Expanded(child: _buildSummaryStat('Avg Pace', '${activity.paceString} /km', const Color(0xFF8B5CF6))),
+                          const SizedBox(width: 16),
+                          Expanded(child: _buildSummaryStat('Avg Speed', '${activity.avgSpeedKmH.toStringAsFixed(1)} km/h', const Color(0xFFF59E0B))),
+                        ],
+                      ),
                     ],
                   ),
                 ),
