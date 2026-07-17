@@ -252,7 +252,7 @@ class AiCoachNotifier extends StateNotifier<AiCoachState> {
         "Do not mention dummy or placeholder stats. If you do not have enough walk logs, gently ask them to log a walk. Keep responses friendly.";
 
     final url = Uri.parse(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey',
     );
 
     try {
