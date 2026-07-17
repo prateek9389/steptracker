@@ -38,12 +38,6 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       icon: Icons.sync_rounded,
       color: AppColors.primary,
     ),
-    'storage': PermissionItem(
-      title: 'Local Storage',
-      desc: 'Cache workout records locally for instant sync and offline map access.',
-      icon: Icons.storage_rounded,
-      color: AppColors.secondary,
-    ),
   };
 
   bool _isConnecting = false;
@@ -85,11 +79,6 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
             break;
           case 'background':
             p = Permission.locationAlways;
-            break;
-          case 'storage':
-            final storageStatus = await Permission.storage.status;
-            final photosStatus = await Permission.photos.status;
-            isEnabled = storageStatus.isGranted || photosStatus.isGranted;
             break;
         }
         if (p != null) {
@@ -151,29 +140,6 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
       case 'background':
         permission = Permission.locationAlways;
         break;
-      case 'storage':
-        try {
-          final storageStatus = await Permission.storage.status;
-          if (storageStatus.isGranted) return true;
-
-          final storageResult = await Permission.storage.request();
-          if (storageResult.isGranted) {
-            return true;
-          } else {
-            final photosStatus = await Permission.photos.status;
-            if (photosStatus.isGranted) return true;
-
-            final photosResult = await Permission.photos.request();
-            if (photosResult.isPermanentlyDenied) {
-              await openAppSettings();
-              return (await Permission.photos.status).isGranted;
-            }
-            return photosResult.isGranted;
-          }
-        } catch (e) {
-          debugPrint('Storage/Photos permission request failed: $e');
-          return false;
-        }
       default:
         return true;
     }
@@ -267,76 +233,19 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                 ),
                 const SizedBox(height: 12),
 
-                // List of Permissions (grouped closer together)
-                ..._permissions.entries.map((entry) {
-                  final key = entry.key;
-                  final p = entry.value;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10.0),
-                    child: GestureDetector(
-                      onTap: () async {
-                        if (!p.isEnabled) {
-                          final granted = await _requestPermission(key);
-                          setState(() {
-                            p.isEnabled = granted;
-                          });
-                        } else {
-                          setState(() {
-                            p.isEnabled = false;
-                          });
-                        }
-                      },
-                      child: GlassCard(
-                        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-                        child: Row(
-                          children: [
-                            // Icon Circle
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: p.color.withOpacity(0.12),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: p.color.withOpacity(0.2),
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Icon(p.icon, size: 22, color: p.color),
-                            ),
-                            const SizedBox(width: 10),
-
-                            // Text block
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.title,
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    p.desc,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      fontSize: 12,
-                                      height: 1.3,
-                                      color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-
-                            // State Switch
-                            Switch(
-                              value: p.isEnabled,
-                              activeThumbColor: AppColors.primary,
-                              onChanged: (val) async {
-                                if (val) {
+                // List of Permissions (scrollable)
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        ..._permissions.entries.map((entry) {
+                          final key = entry.key;
+                          final p = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10.0),
+                            child: GestureDetector(
+                              onTap: () async {
+                                if (!p.isEnabled) {
                                   final granted = await _requestPermission(key);
                                   setState(() {
                                     p.isEnabled = granted;
@@ -347,15 +256,80 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                                   });
                                 }
                               },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }),
+                              child: GlassCard(
+                                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                                child: Row(
+                                  children: [
+                                    // Icon Circle
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: p.color.withOpacity(0.12),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: p.color.withOpacity(0.2),
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      child: Icon(p.icon, size: 22, color: p.color),
+                                    ),
+                                    const SizedBox(width: 10),
 
-                const Spacer(),
+                                    // Text block
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            p.title,
+                                            style: theme.textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            p.desc,
+                                            style: theme.textTheme.bodySmall?.copyWith(
+                                              fontSize: 12,
+                                              height: 1.3,
+                                              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+
+                                    // State Switch
+                                    Switch(
+                                      value: p.isEnabled,
+                                      activeThumbColor: AppColors.primary,
+                                      onChanged: (val) async {
+                                        if (val) {
+                                          final granted = await _requestPermission(key);
+                                          setState(() {
+                                            p.isEnabled = granted;
+                                          });
+                                        } else {
+                                          setState(() {
+                                            p.isEnabled = false;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
 
                 CustomButton(
                   text: 'Grant All Permissions',
