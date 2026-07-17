@@ -14,6 +14,8 @@ import 'screens/profile_setup/edit_profile_screen.dart';
 import 'screens/dashboard/dashboard_shell.dart';
 import 'screens/walk/live_tracking_screen.dart';
 import 'screens/dashboard/settings_screen.dart';
+import 'services/notification_service.dart';
+import 'services/background_task_service.dart';
 
 
 import 'package:firebase_core/firebase_core.dart';
@@ -22,6 +24,12 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+
+  // Initialize background tasks and notifications
+  await NotificationService().initialize();
+  await BackgroundTaskService().initialize();
+  // Register the 2 hour reminder task
+  await BackgroundTaskService().registerStepReminderTask();
   
   try {
     await Firebase.initializeApp(
