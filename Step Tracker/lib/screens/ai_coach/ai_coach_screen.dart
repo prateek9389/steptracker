@@ -56,8 +56,13 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        height: (screenHeight * 0.90) - (bottomInset > 0 ? bottomInset : 0),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F172A) : Colors.white,
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
@@ -261,6 +266,7 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }
