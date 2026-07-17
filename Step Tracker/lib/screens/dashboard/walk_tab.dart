@@ -341,7 +341,16 @@ class _WalkTabState extends ConsumerState<WalkTab> {
       // 4. All good — start the walk
       final user = ref.read(currentUserProvider);
       if (user != null) {
-        ref.read(walkServiceProvider).startWalk(user.uid);
+        try {
+          await ref.read(walkServiceProvider).startWalk(user.uid);
+        } catch (e) {
+          debugPrint('Error starting walk: $e');
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to start walk: $e')),
+          );
+          return;
+        }
       }
       if (!mounted) return;
       Navigator.of(context).pushNamed('/live-tracking');

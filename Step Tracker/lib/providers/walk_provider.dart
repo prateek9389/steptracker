@@ -8,22 +8,25 @@ final walkRepositoryProvider = Provider<WalkRepository>((ref) {
   return WalkRepository();
 });
 
-// Stream the active walk session from local state (updates every second)
-// Falls back to Firestore stream if no local session is active (e.g. app reopened mid-walk)
-final activeWalkStreamProvider = StreamProvider<WalkSession?>((ref) {
+final activeWalkStreamProvider = StreamProvider<WalkSession?>((ref) async* {
   final walkService = ref.watch(walkServiceProvider);
   
-  // If there's a current local session, use the local real-time stream
+  // If there's a current local session, yield it immediately, then yield from stream
   if (walkService.currentSession != null) {
-    return walkService.localSessionStream;
+    yield walkService.currentSession;
+    yield* walkService.localSessionStream;
+    return;
   }
   
   // Fallback: check Firestore for an active session (e.g. app was killed and reopened)
   final user = ref.watch(currentUserProvider);
-  if (user == null) return Stream.value(null);
+  if (user == null) {
+    yield null;
+    return;
+  }
 
   final repo = ref.watch(walkRepositoryProvider);
-  return repo.streamUserWalkSessions(user.uid).map((sessions) {
+  yield* repo.streamUserWalkSessions(user.uid).map((sessions) {
     try {
       return sessions.firstWhere(
         (s) => s.trackingStatus != TrackingStatus.completed,
