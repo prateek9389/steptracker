@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "690998693907",
+    "project_id": "steptracker-82475",
+    "storage_bucket": "steptracker-82475.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:690998693907:android:aa8d37f577a4c389f52fe6",
+        "android_client_info": {
+          "package_name": "com.strideai.stride_ai.stride_ai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "690998693907-piak82jso83bfvhulh702emb39kf03dc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.strideai.stride_ai.stride_ai",
+            "certificate_hash": "df073b4eda8c590c0f41f0cf13b94570fe8651ff"
+          }
+        },
+        {
+          "client_id": "690998693907-lbgpes7ui2lmvdp8egmhimabmpi65s35.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAet0x52b_oyZjSbq1fGx_GG1OCRTPSI7s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "690998693907-lbgpes7ui2lmvdp8egmhimabmpi65s35.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

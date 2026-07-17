@@ -1,0 +1,6 @@
+package com.strideai.stride_ai.stride_ai
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity() {
+}
