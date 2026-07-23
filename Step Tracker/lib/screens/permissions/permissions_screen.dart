@@ -234,16 +234,18 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                 const SizedBox(height: 12),
 
                 // List of Permissions (scrollable)
+                // List of Permissions (scrollable but fills space evenly)
                 Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        ..._permissions.entries.map((entry) {
-                          final key = entry.key;
-                          final p = entry.value;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10.0),
-                            child: GestureDetector(
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: _permissions.entries.map((entry) {
+                            final key = entry.key;
+                            final p = entry.value;
+                            return GestureDetector(
                               onTap: () async {
                                 if (!p.isEnabled) {
                                   final granted = await _requestPermission(key);
@@ -321,11 +323,11 @@ class _PermissionsScreenState extends State<PermissionsScreen> with WidgetsBindi
                                   ],
                                 ),
                               ),
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 

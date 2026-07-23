@@ -118,10 +118,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.directions_run_rounded,
-                        size: 72,
-                        color: AppColors.primary,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.asset(
+                          'assets/icon.png',
+                          width: 72,
+                          height: 72,
+                        ),
                       ),
                     ),
                   ),
@@ -130,23 +133,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                 FadeTransition(
                   opacity: _opacityAnimation,
                   child: Text(
-                    'StrideAI',
-                    style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                    'Step Tracker',
+                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
                           fontFamily: 'Outfit',
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
-                        ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FadeTransition(
-                  opacity: _opacityAnimation,
-                  child: Text(
-                    'AI WALKING COACH',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 4.0,
-                          color: AppColors.primary,
+                          letterSpacing: 1.0,
                         ),
                   ),
                 ),

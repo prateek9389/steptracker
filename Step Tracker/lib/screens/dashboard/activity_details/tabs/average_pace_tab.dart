@@ -98,7 +98,8 @@ class _AveragePaceTabState extends State<AveragePaceTab> {
                   ),
                   const SizedBox(height: 4),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
                         todayPaceString,

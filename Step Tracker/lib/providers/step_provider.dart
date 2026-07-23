@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pedometer/pedometer.dart';
 
 final stepProvider = StateNotifierProvider<StepNotifier, StepState>((ref) {
   return StepNotifier();
@@ -63,148 +65,215 @@ class StepState {
   }
 }
 
+/// Returns the 0-indexed day of the week for today (Mon=0 … Sun=6)
+int _todayWeekdayIndex() {
+  // DateTime.weekday: Monday=1 … Sunday=7
+  return DateTime.now().weekday - 1;
+}
+
+/// Derives steps-per-minute from step count (~100 spm average walking pace).
+/// Minimum 0, maximum 1440 minutes per day.
+int _computeActiveMinutes(int steps) {
+  const stepsPerMinute = 100;
+  return (steps / stepsPerMinute).round().clamp(0, 1440);
+}
+
 class StepNotifier extends StateNotifier<StepState> {
-  Timer? _ambientTimer;
   StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<QuerySnapshot>? _weeklySubscription;
 
   StepNotifier()
       : super(
           StepState(
-            todaySteps: 7428,
-            todayDistanceKm: 5.57,
-            todayCalories: 312,
-            activeMinutes: 54,
-            currentStreak: 6,
-            currentPaceMinKm: 9.3,
-            currentSpeedKmH: 4.8,
-            weeklySteps: [8200, 9400, 11200, 9800, 7428, 0, 0], // Wed is highest, Fri is today (index 4)
-            isTrackingAmbient: true,
+            todaySteps: 0,
+            todayDistanceKm: 0.0,
+            todayCalories: 0,
+            activeMinutes: 0,
+            currentStreak: 0,
+            currentPaceMinKm: 0.0,
+            currentSpeedKmH: 0.0,
+            weeklySteps: List.filled(7, 0),
+            isTrackingAmbient: false,
             hourlySteps: {},
             walkingStatus: 'Inactive',
           ),
         ) {
-    _startAmbientTracking();
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
       if (user != null) {
-        _loadInitialStepsFromFirestore();
+        _loadFromFirestore(user.uid);
+        _subscribeToWeeklyStats(user.uid);
+      } else {
+        // Reset to zeroes when logged out
+        state = state.copyWith(
+          todaySteps: 0,
+          todayDistanceKm: 0.0,
+          todayCalories: 0,
+          activeMinutes: 0,
+          currentStreak: 0,
+          weeklySteps: List.filled(7, 0),
+          hourlySteps: {},
+          walkingStatus: 'Inactive',
+        );
       }
     });
   }
 
-  void _loadInitialStepsFromFirestore() {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser != null) {
-      final todayStr = DateTime.now().toString().substring(0, 10);
-      FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUser.uid)
-          .collection('daily_stats')
-          .doc(todayStr)
-          .get()
-          .then((doc) {
-            if (doc.exists) {
-              final data = doc.data();
-              final steps = data?['steps'] as int? ?? 0;
-              final hourly = (data?['hourlySteps'] as Map<String, dynamic>?)?.map((k, e) => MapEntry(k, e as int)) ?? {};
-              final status = data?['walkingStatus'] as String? ?? 'Inactive';
-              
-              if (steps > 0) {
-                // Initialize state directly to avoid triggering _saveStepsToFirestore unnecessarily
-                final distance = double.parse((steps * 0.00075).toStringAsFixed(2));
-                final calories = (steps * 0.042).toInt();
-                final minutes = 54 + (steps - 7428) ~/ 120;
-                List<int> weekly = List.from(state.weeklySteps);
-                weekly[4] = steps;
-                
-                state = state.copyWith(
-                  todaySteps: steps,
-                  todayDistanceKm: distance,
-                  todayCalories: calories,
-                  activeMinutes: minutes.clamp(0, 1440),
-                  weeklySteps: weekly,
-                  hourlySteps: hourly,
-                  walkingStatus: status,
-                );
-              }
-            }
-          })
-          .catchError((e) {
-            print('Error loading initial steps from Firestore: $e');
-          });
+  Future<void> _initPedometerBaseline(String todayStr) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedDate = prefs.getString('ambient_baseline_date');
+      if (savedDate != todayStr) {
+        final event = await Pedometer.stepCountStream.first.timeout(const Duration(seconds: 3));
+        await prefs.setString('ambient_baseline_date', todayStr);
+        await prefs.setInt('ambient_baseline_steps', event.steps);
+      }
+    } catch (e) {
+      // Ignore if pedometer is unavailable
     }
   }
 
-  void setSteps(int steps) {
-    // Estimate: 1 step = 0.75m = 0.00075km
-    final distance = double.parse((steps * 0.00075).toStringAsFixed(2));
-    // Estimate: 1 step = 0.04 calories
-    final calories = (steps * 0.042).toInt();
+  /// Load today's stat from Firestore and reflect it in state.
+  void _loadFromFirestore(String uid) {
+    final todayStr = DateTime.now().toString().substring(0, 10);
     
-    // Add minutes every 120 steps
-    final minutes = 54 + (steps - 7428) ~/ 120;
+    // Save pedometer baseline if not already saved for today
+    _initPedometerBaseline(todayStr);
 
-    List<int> weekly = List.from(state.weeklySteps);
-    // Today is Friday (index 4)
-    weekly[4] = steps;
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('daily_stats')
+        .doc(todayStr)
+        .get()
+        .then((doc) {
+      if (!doc.exists) return;
+      final data = doc.data()!;
+      final steps = (data['steps'] as int?) ?? 0;
+      if (steps == 0) return;
+
+      final distance = (data['distanceKm'] as num?)?.toDouble() ??
+          double.parse((steps * 0.00075).toStringAsFixed(2));
+      final calories = (data['calories'] as int?) ??
+          (steps * 0.042).toInt();
+      final hourly = (data['hourlySteps'] as Map<String, dynamic>?)
+              ?.map((k, e) => MapEntry(k, e as int)) ??
+          {};
+      final status = (data['walkingStatus'] as String?) ?? 'Inactive';
+      final activeMinutes = _computeActiveMinutes(steps);
+
+      // Reflect today's slot in weekly array
+      final weekly = List<int>.from(state.weeklySteps);
+      weekly[_todayWeekdayIndex()] = steps;
+
+      state = state.copyWith(
+        todaySteps: steps,
+        todayDistanceKm: distance,
+        todayCalories: calories,
+        activeMinutes: activeMinutes,
+        weeklySteps: weekly,
+        hourlySteps: hourly,
+        walkingStatus: status,
+      );
+    }).catchError((e) {
+      // Silently ignore — state stays at zeroes; user just sees 0 steps
+    });
+  }
+
+  /// Subscribe to this week's daily_stats documents so the weekly bar chart
+  /// stays live without polling.
+  void _subscribeToWeeklyStats(String uid) {
+    _weeklySubscription?.cancel();
+
+    // Monday of the current week
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    // Subscribe to this week's daily_stats documents so the weekly bar chart
+    // stays live without polling.
+    _weeklySubscription = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('daily_stats')
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(monday))
+        .snapshots()
+        .listen((snap) {
+      final weekly = List<int>.from(state.weeklySteps);
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final steps = (data['steps'] as int?) ?? 0;
+        final dateTs = data['date'] as Timestamp?;
+        if (dateTs == null) continue;
+        final date = dateTs.toDate();
+        final idx = date.weekday - 1; // Mon=0 … Sun=6
+        if (idx >= 0 && idx < 7) {
+          weekly[idx] = steps;
+        }
+      }
+      state = state.copyWith(weeklySteps: weekly);
+    });
+  }
+
+  void setSteps(int steps) {
+    final distance = double.parse((steps * 0.00075).toStringAsFixed(2));
+    final calories = (steps * 0.042).toInt();
+    final activeMinutes = _computeActiveMinutes(steps);
+
+    final weekly = List<int>.from(state.weeklySteps);
+    weekly[_todayWeekdayIndex()] = steps;
 
     state = state.copyWith(
       todaySteps: steps,
       todayDistanceKm: distance,
       todayCalories: calories,
-      activeMinutes: minutes.clamp(0, 1440),
+      activeMinutes: activeMinutes,
       weeklySteps: weekly,
     );
   }
 
-  void _startAmbientTracking() {
-    _ambientTimer?.cancel();
-    _ambientTimer = Timer.periodic(const Duration(seconds: 12), (timer) {
-      if (state.isTrackingAmbient) {
-        incrementSteps(1 + (DateTime.now().second % 3)); // Add 1-3 steps ambiently
-      }
-    });
-  }
-
   void incrementSteps(int count) {
     final steps = state.todaySteps + count;
-    // Estimate: 1 step = 0.75m = 0.00075km
     final distance = double.parse((steps * 0.00075).toStringAsFixed(2));
-    // Estimate: 1 step = 0.04 calories
     final calories = (steps * 0.042).toInt();
-    
-    // Add minutes every 120 steps
-    final minutes = 54 + (steps - 7428) ~/ 120;
+    final activeMinutes = _computeActiveMinutes(steps);
 
-    List<int> weekly = List.from(state.weeklySteps);
-    // Today is Friday (index 4)
-    weekly[4] = steps;
+    final weekly = List<int>.from(state.weeklySteps);
+    weekly[_todayWeekdayIndex()] = steps;
 
-    // Premium fields
     final now = DateTime.now();
     final hourKey = '${now.hour.toString().padLeft(2, '0')}:00';
     final hourly = Map<String, int>.from(state.hourlySteps);
     hourly[hourKey] = (hourly[hourKey] ?? 0) + count;
-    
-    final status = count > 0 ? 'Walking' : 'Inactive';
+
+    const status = 'Walking';
 
     state = state.copyWith(
       todaySteps: steps,
       todayDistanceKm: distance,
       todayCalories: calories,
-      activeMinutes: minutes.clamp(0, 1440),
+      activeMinutes: activeMinutes,
       weeklySteps: weekly,
       hourlySteps: hourly,
       walkingStatus: status,
     );
 
-    _saveStepsToFirestore(steps, hourly, status, distance, calories, minutes);
+    _saveStepsToFirestore(steps, hourly, status, distance, calories, activeMinutes);
   }
 
-  void _saveStepsToFirestore(int steps, Map<String, int> hourly, String status, double distance, int calories, int minutes) {
+  void _saveStepsToFirestore(int steps, Map<String, int> hourly, String status,
+      double distance, int calories, int activeMinutes) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser != null) {
-      final todayStr = DateTime.now().toString().substring(0, 10);
-      final dailyGoal = 6000; // Standard goal
+    if (currentUser == null) return;
+
+    final todayStr = DateTime.now().toString().substring(0, 10);
+
+    // Fetch the user's actual daily goal from Firestore asynchronously.
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser.uid)
+        .get()
+        .then((profileDoc) {
+      final dailyGoal =
+          (profileDoc.data()?['dailyGoal'] as int?) ?? 10000;
+      final goalCompleted = steps >= dailyGoal;
       final progress = (steps / dailyGoal).clamp(0.0, 1.0);
       final remaining = (dailyGoal - steps).clamp(0, dailyGoal);
 
@@ -214,22 +283,39 @@ class StepNotifier extends StateNotifier<StepState> {
           .collection('daily_stats')
           .doc(todayStr)
           .set({
-            'uid': currentUser.uid,
-            'steps': steps,
-            'distanceKm': distance,
-            'calories': calories,
-            'activeMinutes': minutes,
-            'hourlySteps': hourly,
-            'walkingStatus': status,
-            'progress': progress,
-            'remainingSteps': remaining,
-            'date': Timestamp.now(),
-            'lastUpdated': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true))
-          .catchError((e) {
-            print('Error writing stats to Firestore: $e');
-          });
-    }
+        'uid': currentUser.uid,
+        'steps': steps,
+        'distanceKm': distance,
+        'calories': calories,
+        'activeMinutes': activeMinutes,
+        'hourlySteps': hourly,
+        'walkingStatus': status,
+        'goalCompleted': goalCompleted,
+        'progress': progress,
+        'remainingSteps': remaining,
+        'date': Timestamp.now(),
+        'lastUpdated': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).then((_) {
+        // Also persist to SharedPreferences for background notification tasks
+        _persistToSharedPreferences(
+            todayStr, steps, dailyGoal, goalCompleted);
+      }).catchError((e) {
+        // ignore
+      });
+    }).catchError((e) {
+      // ignore
+    });
+  }
+
+  Future<void> _persistToSharedPreferences(
+      String dateId, int steps, int dailyGoal, bool goalCompleted) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('last_step_date_id', dateId);
+      await prefs.setInt('last_step_count', steps);
+      await prefs.setInt('daily_step_goal', dailyGoal);
+      await prefs.setBool('last_step_goal_completed', goalCompleted);
+    } catch (_) {}
   }
 
   void addManualSteps(int count) {
@@ -242,8 +328,8 @@ class StepNotifier extends StateNotifier<StepState> {
 
   @override
   void dispose() {
-    _ambientTimer?.cancel();
     _authSubscription?.cancel();
+    _weeklySubscription?.cancel();
     super.dispose();
   }
 }

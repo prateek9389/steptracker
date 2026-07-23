@@ -13,6 +13,7 @@ class TodayWorkoutsScreen extends StatelessWidget {
   final int activeMinutes;
   final double distanceKm;
   final int calories;
+  final VoidCallback? onRewardTap;
 
   const TodayWorkoutsScreen({
     super.key,
@@ -25,6 +26,7 @@ class TodayWorkoutsScreen extends StatelessWidget {
     required this.activeMinutes,
     required this.distanceKm,
     required this.calories,
+    this.onRewardTap,
   });
 
   @override
@@ -99,6 +101,7 @@ class TodayWorkoutsScreen extends StatelessWidget {
                   activeMinutes: activeMinutes,
                   distanceKm: distanceKm,
                   calories: calories,
+                  onRewardTap: onRewardTap,
                 ),
               ),
             ),

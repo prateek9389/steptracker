@@ -77,7 +77,8 @@ class _CaloriesTabState extends State<CaloriesTab> {
                   ),
                   const SizedBox(height: 4),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
                         '$todayCalories',

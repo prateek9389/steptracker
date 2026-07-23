@@ -7,8 +7,6 @@ import '../../widgets/glass_card.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/dashboard_provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/walk_provider.dart';
 import '../weight/weight_tracker_screen.dart';
 import '../insights/health_insights_screen.dart';
@@ -171,39 +169,15 @@ class ProfileTab extends ConsumerWidget {
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    p.name,
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.of(context).pushNamed('/edit-profile');
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withOpacity(0.12),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.edit_rounded,
-                                      size: 14,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              p.name,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             if (FirebaseAuth.instance.currentUser?.email != null) ...[
                               const SizedBox(height: 2),
@@ -217,49 +191,21 @@ class ProfileTab extends ConsumerWidget {
                               ),
                             ],
                             const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Text(
-                                  'Level ${p.level} Explorer',
-                                  style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                              ),
+                              child: Text(
+                                'Level ${p.level}',
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(Icons.stars_rounded, size: 16, color: AppColors.primary),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            // XP Progress Bar
-                            LinearProgressIndicator(
-                              value: xpPercent,
-                              backgroundColor: isDark ? Colors.white10 : Colors.black.withOpacity(0.06),
-                              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                              minHeight: 6,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '$xp XP',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white70 : AppColors.primary,
-                                  ),
-                                ),
-                                Text(
-                                  '${(xpToNextLevel - xp).clamp(0, xpToNextLevel)} XP to Level up',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: isDark ? AppColors.textMutedDark : AppColors.textSecondaryLight,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ],
                         ),
@@ -386,38 +332,6 @@ class ProfileTab extends ConsumerWidget {
                       ),
                       Divider(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06), height: 24),
 
-                      // Offline Sync Status Card
-                      Row(
-                        children: [
-                          const Icon(Icons.cloud_done_outlined, color: AppColors.success),
-                          const SizedBox(width: 16),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Local Cache Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                Text('All records synched', style: TextStyle(color: AppColors.success, fontSize: 10, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          OutlinedButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Sync completed successfully.'), backgroundColor: AppColors.success),
-                              );
-                            },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              side: const BorderSide(color: AppColors.primary),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: const Text('Sync Now', style: TextStyle(fontSize: 11)),
-                          ),
-                        ],
-                      ),
-                      Divider(color: isDark ? Colors.white10 : Colors.black.withOpacity(0.06), height: 24),
 
                       // Connected Devices
                       _buildSettingRow(Icons.smartphone_rounded, 'Connected Devices', 'Phone sensors active'),

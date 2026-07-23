@@ -84,7 +84,8 @@ class _DistanceTabState extends State<DistanceTab> {
                   ),
                   const SizedBox(height: 4),
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
                         todayDistance < 1.0 ? '${(todayDistance * 1000).toInt()}' : todayDistance.toStringAsFixed(2),

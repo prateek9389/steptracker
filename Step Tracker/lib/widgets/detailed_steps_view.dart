@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:stride_ai/theme/app_colors.dart';
+import '../screens/ai_coach/ai_coach_screen.dart';
 
 class DetailedStepsView extends StatelessWidget {
   final int currentSteps;
@@ -11,6 +12,7 @@ class DetailedStepsView extends StatelessWidget {
   final double distanceKm;
   final int calories;
   final VoidCallback? onBack;
+  final VoidCallback? onRewardTap;
 
   const DetailedStepsView({
     super.key,
@@ -22,6 +24,7 @@ class DetailedStepsView extends StatelessWidget {
     required this.distanceKm,
     required this.calories,
     this.onBack,
+    this.onRewardTap,
   });
 
   @override
@@ -54,17 +57,41 @@ class DetailedStepsView extends StatelessWidget {
     } else if (progress > 0.0) {
       motivationMsg = "Good start! Keep it up.";
     }
-
-    int base = (currentSteps ~/ 5000) * 5000;
-    int m1 = base == 0 ? 5000 : base;
-    int m2 = m1 + 5000;
-    int m3 = m2 + 5000;
+    final List<int> stepMilestones = [2500, 5000, 7500, 10000, 15000, 20000];
+    final Map<int, Map<String, int>> milestoneRewards = {
+      2500: {'coins': 10, 'xp': 5},
+      5000: {'coins': 20, 'xp': 10},
+      7500: {'coins': 30, 'xp': 15},
+      10000: {'coins': 50, 'xp': 25},
+      15000: {'coins': 80, 'xp': 40},
+      20000: {'coins': 120, 'xp': 60},
+    };
+    
+    int m1 = stepMilestones[0];
+    int m2 = stepMilestones[1];
+    int m3 = stepMilestones[2];
+    
+    for (int i = 0; i < stepMilestones.length; i++) {
+      if (currentSteps < stepMilestones[i]) {
+        if (i > 0) m1 = stepMilestones[i - 1];
+        m2 = stepMilestones[i];
+        m3 = (i + 1 < stepMilestones.length) ? stepMilestones[i + 1] : m2 + 5000;
+        break;
+      }
+      if (i == stepMilestones.length - 1) {
+        m1 = stepMilestones[i - 1];
+        m2 = stepMilestones[i];
+        m3 = m2 + 5000;
+      }
+    }
     
     bool m1Reached = currentSteps >= m1;
     bool m2Reached = currentSteps >= m2;
     
-    int nextRewardGoal = currentSteps < 5000 ? 5000 : m2;
+    int nextRewardGoal = m2;
     int stepsToNextMilestone = nextRewardGoal > currentSteps ? nextRewardGoal - currentSteps : 0;
+    int nextRewardCoins = milestoneRewards[nextRewardGoal]?['coins'] ?? 50;
+    int nextRewardXp = milestoneRewards[nextRewardGoal]?['xp'] ?? 25;
 
     Widget buildCard({required Widget child, EdgeInsets padding = const EdgeInsets.all(20)}) {
       return Container(
@@ -353,194 +380,91 @@ class DetailedStepsView extends StatelessWidget {
           ),
         ),
 
-        // 3. Status & Active Time Row
-        Row(
-          children: [
-            // Status Card
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF064E3B).withOpacity(0.3) : const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: isDark ? Colors.white12 : Colors.white, shape: BoxShape.circle),
-                          child: const Icon(Icons.directions_walk_rounded, color: Color(0xFF16A34A), size: 28),
-                        ),
-                        const Spacer(),
-                        if (walkingStatus == 'Walking')
-                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF16A34A), shape: BoxShape.circle)),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Status', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : const Color(0xFF4B5563))),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(walkingStatus, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
-                    ),
-                    const SizedBox(height: 16),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF16A34A).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.sensors_rounded, size: 14, color: Color(0xFF16A34A)),
-                            const SizedBox(width: 6),
-                            Text('Live Tracking Active', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
-                          ],
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-            // Active Time Card
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E3A8A).withOpacity(0.3) : const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: isDark ? Colors.white12 : Colors.white, shape: BoxShape.circle),
-                          child: const Icon(Icons.timer_outlined, color: Color(0xFF2563EB), size: 28),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Active Time', style: TextStyle(fontSize: 13, color: isDark ? Colors.white70 : const Color(0xFF4B5563))),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(activeTimeString, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-                    ),
-                    const SizedBox(height: 16),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF2563EB)),
-                            const SizedBox(width: 6),
-                            Text('Total Walking Time', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
-                          ],
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+
 
         // 4. Next Reward Card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF78350F).withOpacity(0.3) : const Color(0xFFFFFBEB),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: borderColor),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: isDark ? Colors.white12 : Colors.white, shape: BoxShape.circle),
-                    child: const Icon(Icons.stars_rounded, color: Color(0xFFF59E0B), size: 36),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Next Reward', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF1F2937))),
-                        const SizedBox(height: 4),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: RichText(
-                            text: TextSpan(
-                              style: TextStyle(fontSize: 14, fontFamily: 'Outfit'),
-                              children: [
-                                TextSpan(
-                                  text: '${stepsToNextMilestone.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ',
-                                  style: const TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold),
-                                ),
-                                TextSpan(text: 'more steps to earn ', style: TextStyle(color: isDark ? Colors.white70 : const Color(0xFF4B5563))),
-                                const TextSpan(text: '50 Coins', style: TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold)),
-                              ],
+        GestureDetector(
+          onTap: onRewardTap,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF78350F).withOpacity(0.3) : const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: borderColor),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: isDark ? Colors.white12 : Colors.white, shape: BoxShape.circle),
+                      child: const Icon(Icons.stars_rounded, color: Color(0xFFF59E0B), size: 36),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Next Reward', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF1F2937))),
+                          const SizedBox(height: 4),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: RichText(
+                              text: TextSpan(
+                                style: TextStyle(fontSize: 14, fontFamily: 'Outfit'),
+                                children: [
+                                  TextSpan(
+                                    text: '${stepsToNextMilestone.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')} ',
+                                    style: const TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold),
+                                  ),
+                                  TextSpan(text: 'more steps to earn ', style: TextStyle(color: isDark ? Colors.white70 : const Color(0xFF4B5563))),
+                                  TextSpan(text: '$nextRewardCoins Coins + $nextRewardXp XP', style: const TextStyle(color: Color(0xFFD97706), fontWeight: FontWeight.bold)),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Icon(Icons.chevron_right_rounded, color: isDark ? Colors.white54 : Colors.black26, size: 28),
-                ],
-              ),
-              const SizedBox(height: 24),
-              // Linear Reward Track
-              Row(
-                children: [
-                  _buildRewardNode(active: m1Reached, icon: m1Reached ? Icons.check_circle_rounded : Icons.directions_walk_rounded, label: '${m1 ~/ 1000}K Steps', isCurrent: currentSteps < m2 && m1Reached),
-                  Expanded(child: Container(height: 2, color: m1Reached ? const Color(0xFFF59E0B) : Colors.grey[300])),
-                  _buildRewardNode(active: m2Reached, icon: m2Reached ? Icons.check_circle_rounded : (m1Reached ? Icons.directions_walk_rounded : Icons.lock_rounded), label: '${m2 ~/ 1000}K Steps', isCurrent: currentSteps >= m1 && currentSteps < m3 && !m2Reached),
-                  Expanded(child: Container(height: 2, color: m2Reached ? const Color(0xFFF59E0B) : Colors.grey[300])),
-                  _buildRewardNode(active: false, icon: m2Reached ? Icons.directions_walk_rounded : Icons.lock_rounded, label: '${m3 ~/ 1000}K Steps', isCurrent: currentSteps >= m2),
-                ],
-              )
-            ],
+                    Icon(Icons.chevron_right_rounded, color: isDark ? Colors.white54 : Colors.black26, size: 28),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                // Linear Reward Track
+                Row(
+                  children: [
+                    _buildRewardNode(active: m1Reached, icon: m1Reached ? Icons.check_circle_rounded : Icons.directions_walk_rounded, label: '${(m1 / 1000).toStringAsFixed(1).replaceAll('.0', '')}K Steps', isCurrent: currentSteps < m2 && m1Reached),
+                    Expanded(child: Container(height: 2, color: m1Reached ? const Color(0xFFF59E0B) : Colors.grey[300])),
+                    _buildRewardNode(active: m2Reached, icon: m2Reached ? Icons.check_circle_rounded : (m1Reached ? Icons.directions_walk_rounded : Icons.lock_rounded), label: '${(m2 / 1000).toStringAsFixed(1).replaceAll('.0', '')}K Steps', isCurrent: currentSteps >= m1 && currentSteps < m3 && !m2Reached),
+                    Expanded(child: Container(height: 2, color: m2Reached ? const Color(0xFFF59E0B) : Colors.grey[300])),
+                    _buildRewardNode(active: false, icon: m2Reached ? Icons.directions_walk_rounded : Icons.lock_rounded, label: '${(m3 / 1000).toStringAsFixed(1).replaceAll('.0', '')}K Steps', isCurrent: currentSteps >= m2),
+                  ],
+                )
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 16),
 
         // 5. AI Coach Card
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? primaryPurple.withOpacity(0.15) : lightPurpleBg,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: borderColor),
-          ),
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AiCoachScreen(),
+              ),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? primaryPurple.withOpacity(0.15) : lightPurpleBg,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: borderColor),
+            ),
           child: Row(
             children: [
               Container(
@@ -571,6 +495,7 @@ class DetailedStepsView extends StatelessWidget {
               Icon(Icons.chevron_right_rounded, color: isDark ? Colors.white54 : Colors.black26, size: 28),
             ],
           ),
+        ),
         ),
         const SizedBox(height: 24),
 

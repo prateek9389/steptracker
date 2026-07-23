@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:stride_ai/theme/app_colors.dart';
 import 'package:stride_ai/providers/walk_provider.dart';
 import 'package:stride_ai/providers/stats_provider.dart';
+import 'package:stride_ai/providers/step_provider.dart';
+import 'package:stride_ai/models/daily_stat.dart';
 
 import 'tabs/calories_tab.dart';
 import 'tabs/distance_tab.dart';
@@ -49,6 +51,7 @@ class _ActivityDetailsScreenState extends ConsumerState<ActivityDetailsScreen>
     
     final walkHistoryAsync = ref.watch(walkHistoryStreamProvider);
     final dailyStatsAsync = ref.watch(allDailyStatsStreamProvider);
+    final stepState = ref.watch(stepProvider);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.backgroundDark : AppColors.backgroundLight,
@@ -96,13 +99,39 @@ class _ActivityDetailsScreenState extends ConsumerState<ActivityDetailsScreen>
         data: (walks) {
           return dailyStatsAsync.when(
             data: (dailyStats) {
+              final now = DateTime.now();
+              final todayKey = '${now.year}-${now.month}-${now.day}';
+              
+              final index = dailyStats.indexWhere((s) => s.date.year == now.year && s.date.month == now.month && s.date.day == now.day);
+              
+              final liveStat = DailyStat(
+                dateId: todayKey,
+                uid: '',
+                date: now,
+                steps: stepState.todaySteps,
+                distanceKm: stepState.todayDistanceKm,
+                calories: stepState.todayCalories,
+                activeMinutes: stepState.activeMinutes,
+                walkingTimeSeconds: stepState.activeMinutes * 60,
+                goalCompleted: stepState.todaySteps >= 10000,
+                hourlySteps: stepState.hourlySteps,
+                walkingStatus: stepState.walkingStatus,
+              );
+
+              final List<DailyStat> updatedStats = List.from(dailyStats);
+              if (index >= 0) {
+                updatedStats[index] = liveStat;
+              } else {
+                updatedStats.add(liveStat);
+              }
+
               return TabBarView(
                 controller: _tabController,
                 children: [
-                  CaloriesTab(walks: walks, dailyStats: dailyStats),
-                  DistanceTab(walks: walks, dailyStats: dailyStats),
-                  ActiveTimeTab(walks: walks, dailyStats: dailyStats),
-                  AveragePaceTab(walks: walks, dailyStats: dailyStats),
+                  CaloriesTab(walks: walks, dailyStats: updatedStats),
+                  DistanceTab(walks: walks, dailyStats: updatedStats),
+                  ActiveTimeTab(walks: walks, dailyStats: updatedStats),
+                  AveragePaceTab(walks: walks, dailyStats: updatedStats),
                 ],
               );
             },

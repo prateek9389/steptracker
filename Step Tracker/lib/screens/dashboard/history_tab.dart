@@ -13,6 +13,7 @@ import '../history/achievements_screen.dart';
 import '../history/saved_routes_screen.dart';
 import '../../models/walk_session.dart';
 import '../../models/daily_stat.dart';
+import '../ai_coach/ai_coach_screen.dart';
 
 // ─── Sort Options ────────────────────────────────────────────
 enum SortOrder { newestFirst, oldestFirst, longestDistance, highestCalories, mostSteps }
@@ -32,6 +33,8 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
   DateTime _calendarMonth = DateTime.now();
   DateTime? _selectedDate;
   int _listLimit = 5;
+  bool _isSearchVisible = false;
+  bool _isCalendarVisible = false;
 
   static const _purple = Color(0xFF6324D6);
   static const _green  = Color(0xFF10B981);
@@ -57,12 +60,15 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
   Color _cardBorder(bool isDark) => isDark ? Colors.white12 : Colors.grey.shade200;
 
   List<WalkSession> _applyFilters(List<WalkSession> all) {
-    final now = DateTime.now();
     var list = all.where((w) {
       // chip / time filter
       switch (_selectedChip) {
-        case 'All': break;
-        case 'Walks': break;
+        case 'All':
+          break; // show everything
+        case 'Walks':
+          // Only show sessions that have meaningful distance (actual walks)
+          if (w.distanceKm < 0.01 && w.steps < 50) return false;
+          break;
       }
       // date filter from calendar
       if (_selectedDate != null) {
@@ -72,10 +78,21 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
       }
       // search
       if (_searchQuery.isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        if (!w.title.toLowerCase().contains(q) &&
-            !DateFormat('d MMM yyyy').format(w.startTime).toLowerCase().contains(q) &&
-            !w.distanceKm.toStringAsFixed(1).contains(q)) {
+        final q = _searchQuery.trim().toLowerCase();
+        final matchTitle = w.title.toLowerCase().contains(q);
+        final matchDist = w.distanceKm.toStringAsFixed(1).contains(q) || w.distanceKm.toStringAsFixed(2).contains(q) || '${w.distanceKm.toStringAsFixed(1)} km'.contains(q);
+        final matchSteps = w.steps.toString().contains(q) || '${w.steps} steps'.contains(q);
+        final matchCal = w.calories.toString().contains(q) || '${w.calories} kcal'.contains(q);
+        final matchDur = w.durationString.toLowerCase().contains(q);
+        
+        final date1 = DateFormat('d MMM yyyy').format(w.startTime).toLowerCase();
+        final date2 = DateFormat('MMMM d, yyyy').format(w.startTime).toLowerCase();
+        final date3 = DateFormat('MM/dd/yyyy').format(w.startTime).toLowerCase();
+        final date4 = DateFormat('dd/MM/yyyy').format(w.startTime).toLowerCase();
+        final date5 = DateFormat('EEEE').format(w.startTime).toLowerCase();
+        final matchDate = date1.contains(q) || date2.contains(q) || date3.contains(q) || date4.contains(q) || date5.contains(q);
+
+        if (!matchTitle && !matchDist && !matchSteps && !matchCal && !matchDur && !matchDate) {
           return false;
         }
       }
@@ -112,12 +129,13 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
             return CustomScrollView(
               slivers: [
                 _buildHeader(isDark),
-                SliverToBoxAdapter(child: _buildFilterChips(isDark)),
+                if (_isSearchVisible) SliverToBoxAdapter(child: _buildSearchBar(isDark)),
+                // Filter Chips Removed per user request
                 SliverToBoxAdapter(child: _buildQuickStats(isDark, allWalks)),
-                SliverToBoxAdapter(child: _buildCalendar(isDark, allWalks)),
+                if (_isCalendarVisible) SliverToBoxAdapter(child: _buildCalendar(isDark, allWalks)),
                 SliverToBoxAdapter(child: _buildWalkListAndOverview(context, isDark, filtered, stats)),
-                SliverToBoxAdapter(child: _buildAiInsightsCard(isDark, allWalks, stats)),
-                SliverToBoxAdapter(child: _buildAchievementsAndRoutes(isDark, allWalks)),
+                // AI Insight Removed per user request
+                // Achievements and Routes Removed per user request
                 const SliverToBoxAdapter(child: SizedBox(height: 40)),
               ],
             );
@@ -183,7 +201,17 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
         ])),
         const SizedBox(width: 8),
         GestureDetector(
-          onTap: () {},
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            setState(() {
+              _isSearchVisible = !_isSearchVisible;
+              if (!_isSearchVisible) {
+                _searchController.clear();
+                _searchQuery = '';
+                _listLimit = 5;
+              }
+            });
+          },
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -255,10 +283,19 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
         ),
         child: Row(children: [
           const SizedBox(width: 14),
-          Icon(Icons.search_rounded, color: isDark ? Colors.white38 : Colors.grey.shade400, size: 20),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Icon(Icons.search_rounded, color: isDark ? Colors.white38 : Colors.grey.shade400, size: 20),
+          ),
           const SizedBox(width: 10),
           Expanded(child: TextField(
             controller: _searchController,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (v) {
+              setState(() { _searchQuery = v; _listLimit = 5; });
+              FocusScope.of(context).unfocus();
+            },
             onChanged: (v) => setState(() { _searchQuery = v; _listLimit = 5; }),
             style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87),
             decoration: InputDecoration(
@@ -273,11 +310,22 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
               child: Icon(Icons.close_rounded, color: isDark ? Colors.white38 : Colors.grey.shade400, size: 18),
             ),
           const SizedBox(width: 4),
-          Container(
-            margin: const EdgeInsets.all(8),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: _purple.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-            child: const Icon(Icons.calendar_month_rounded, color: _purple, size: 18),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isCalendarVisible = !_isCalendarVisible;
+              });
+              FocusScope.of(context).unfocus();
+            },
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _isCalendarVisible ? _purple : _purple.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.calendar_month_rounded, color: _isCalendarVisible ? Colors.white : _purple, size: 18),
+            ),
           ),
         ]),
       ),
@@ -826,7 +874,14 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
         )),
         const SizedBox(height: 12),
         GestureDetector(
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AiCoachScreen(),
+              ),
+            );
+          },
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -1059,7 +1114,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
       context: context,
       backgroundColor: bg,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => Padding(
+      builder: (sheetContext) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Sort by', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
@@ -1078,7 +1133,7 @@ class _HistoryTabState extends ConsumerState<HistoryTab> {
               title: Text(opt.$2, style: TextStyle(fontSize: 14, color: isDark ? Colors.white : Colors.black87,
                   fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
               trailing: selected ? const Icon(Icons.check_rounded, color: _purple, size: 18) : null,
-              onTap: () { setState(() => _sortOrder = opt.$1); Navigator.pop(context); },
+              onTap: () { setState(() => _sortOrder = opt.$1); Navigator.pop(sheetContext); },
             );
           }),
         ]),

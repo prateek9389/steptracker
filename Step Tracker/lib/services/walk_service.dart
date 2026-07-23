@@ -12,6 +12,9 @@ import 'package:stride_ai/repositories/profile_repository.dart';
 import 'package:stride_ai/services/gps_service.dart';
 import 'package:stride_ai/services/step_service.dart';
 import 'package:stride_ai/services/reward_service.dart';
+import 'package:stride_ai/services/notification_service.dart';
+import 'package:stride_ai/repositories/reward_repository.dart';
+import 'package:stride_ai/models/reward_history.dart';
 
 final walkServiceProvider = Provider<WalkService>((ref) {
   return WalkService(
@@ -27,6 +30,7 @@ class WalkService {
   final DailyStatRepository _dailyStatRepo = DailyStatRepository();
   final ProfileRepository _profileRepo = ProfileRepository();
   final RewardService _rewardService = RewardService();
+  final RewardRepository _rewardRepo = RewardRepository();
 
   StreamSubscription<Position>? _gpsSub;
   StreamSubscription<int>? _stepSub;
@@ -355,6 +359,22 @@ class WalkService {
     _currentDailyStat = _currentDailyStat!.copyWith(
       steps: _currentDailyStat!.steps + stepDelta,
     );
+
+    _triggerLiveMilestoneCheck();
+  }
+
+  void _triggerLiveMilestoneCheck() {
+    if (_currentUserProfile == null || _currentDailyStat == null) return;
+    _rewardService.checkLiveMilestones(
+      _currentUserProfile!.uid, 
+      _currentDailyStat!, 
+      _currentUserProfile!
+    ).then((updatedStat) {
+      if (updatedStat.awardedStepMilestones.length != _currentDailyStat!.awardedStepMilestones.length ||
+          updatedStat.awardedDistanceMilestones.length != _currentDailyStat!.awardedDistanceMilestones.length) {
+        _currentDailyStat = updatedStat;
+      }
+    });
   }
 
   // ── GPS position update ───────────────────────────────────────────────────
@@ -521,6 +541,7 @@ class WalkService {
         distanceKm: _currentDailyStat!.distanceKm + distanceDelta,
         steps: _currentDailyStat!.steps + stepsDelta,
       );
+      _triggerLiveMilestoneCheck();
     } else {
       _currentSession = _currentSession!.copyWith(route: newRoute);
     }

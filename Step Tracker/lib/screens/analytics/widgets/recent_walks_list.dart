@@ -113,7 +113,7 @@ class RecentWalksList extends StatelessWidget {
                   children: [
                     _buildMiniStat(Icons.location_on_rounded, const Color(0xFF10B981), '${walk.distanceKm.toStringAsFixed(1)} km', isDark),
                     _buildMiniStat(Icons.timer_outlined, const Color(0xFF3B82F6), '${durationMins}m', isDark),
-                    _buildMiniStat(Icons.local_fire_department_rounded, const Color(0xFFF97316), '${walk.calories}', isDark),
+                    _buildMiniStat(Icons.local_fire_department_rounded, const Color(0xFFF97316), '${walk.calories} kcal', isDark),
                   ],
                 ),
               ],

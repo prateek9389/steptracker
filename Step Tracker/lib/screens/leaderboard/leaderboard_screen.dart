@@ -12,7 +12,8 @@ class LeaderboardScreen extends ConsumerStatefulWidget {
   ConsumerState<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with SingleTickerProviderStateMixin {
+class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -31,14 +32,17 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
-    final leaderboardState = ref.watch(leaderboardProvider);
+
+    final globalState = ref.watch(leaderboardProvider);
+    final friendsState = ref.watch(friendsLeaderboardProvider);
+    final cityState = ref.watch(cityLeaderboardProvider);
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
+        borderRadius:
+            const BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
         border: Border.all(
           color: isDark ? const Color(0x1AFFFFFF) : const Color(0xFFE2E8F0),
           width: 1.5,
@@ -46,7 +50,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
       ),
       child: Column(
         children: [
-          // Header drawer grabber
+          // Handle
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12.0),
             child: Container(
@@ -71,7 +75,8 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
                     const SizedBox(width: 12),
                     Text(
                       'Leaderboard',
-                      style: theme.textTheme.displaySmall?.copyWith(fontFamily: 'Outfit', fontWeight: FontWeight.bold, fontSize: 24),
+                      style: theme.textTheme.displaySmall?.copyWith(
+                          fontFamily: 'Outfit', fontWeight: FontWeight.bold, fontSize: 24),
                     ),
                   ],
                 ),
@@ -83,38 +88,67 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
             ),
           ),
 
-          // Filters TabBar
+          // Tabs
           TabBar(
             controller: _tabController,
             indicatorColor: AppColors.primary,
             labelColor: AppColors.primary,
-            unselectedLabelColor: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+            unselectedLabelColor:
+                isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
             labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             tabs: const [
               Tab(text: 'Friends'),
-              Tab(text: 'City (SF)'),
+              Tab(text: 'My City'),
               Tab(text: 'Global'),
             ],
           ),
           const SizedBox(height: 16),
 
           Expanded(
-            child: leaderboardState.when(
-              data: (users) {
-                if (users.isEmpty) {
-                  return const Center(child: Text('No users found on the leaderboard.'));
-                }
-                return TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildLeaderboardList(users),
-                    _buildLeaderboardList(users), // Same users across all tabs for now, until scoped queries are built
-                    _buildLeaderboardList(users),
-                  ],
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-              error: (err, stack) => Center(child: Text('Error loading leaderboard: $err')),
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // Friends tab
+                friendsState.when(
+                  data: (users) => _buildLeaderboardList(
+                    users,
+                    isDark,
+                    emptyMessage:
+                        'No friends found.\nAdd friends to see them here.',
+                  ),
+                  loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary)),
+                  error: (e, _) =>
+                      Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.danger))),
+                ),
+
+                // City tab
+                cityState.when(
+                  data: (users) => _buildLeaderboardList(
+                    users,
+                    isDark,
+                    emptyMessage:
+                        'No city leaderboard yet.\nUpdate your city in your profile to see local rankings.',
+                  ),
+                  loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary)),
+                  error: (e, _) =>
+                      Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.danger))),
+                ),
+
+                // Global tab
+                globalState.when(
+                  data: (users) => _buildLeaderboardList(
+                    users,
+                    isDark,
+                    emptyMessage: 'No users found on the global leaderboard yet.',
+                  ),
+                  loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.primary)),
+                  error: (e, _) =>
+                      Center(child: Text('Error: $e', style: const TextStyle(color: AppColors.danger))),
+                ),
+              ],
             ),
           ),
         ],
@@ -122,32 +156,50 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
     );
   }
 
-  Widget _buildLeaderboardList(List<LeaderboardUser> users) {
-    final theme = Theme.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildLeaderboardList(
+    List<LeaderboardUser> users,
+    bool isDark, {
+    required String emptyMessage,
+  }) {
+    if (users.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Text(
+            emptyMessage,
+            style: TextStyle(
+              color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+              fontSize: 14,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       itemCount: users.length,
       itemBuilder: (context, idx) {
         final u = users[idx];
-        
-        // Highlight podium positions
+
         Color rankColor = AppColors.textSecondaryDark;
-        if (u.rank == 1) rankColor = const Color(0xFFFFD700); // Gold
-        if (u.rank == 2) rankColor = const Color(0xFFC0C0C0); // Silver
-        if (u.rank == 3) rankColor = const Color(0xFFCD7F32); // Bronze
+        if (u.rank == 1) rankColor = const Color(0xFFFFD700);
+        if (u.rank == 2) rankColor = const Color(0xFFC0C0C0);
+        if (u.rank == 3) rankColor = const Color(0xFFCD7F32);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12.0),
           child: GlassCard(
             borderColor: u.isCurrentUser ? AppColors.primary.withOpacity(0.4) : null,
             gradient: u.isCurrentUser
-                ? LinearGradient(colors: isDark ? [const Color(0xFF132F23), const Color(0xFF0B1220)] : [Colors.white, const Color(0xFFE8FDF0)])
+                ? LinearGradient(colors: isDark
+                    ? [const Color(0xFF132F23), const Color(0xFF0B1220)]
+                    : [Colors.white, const Color(0xFFE8FDF0)])
                 : null,
             child: Row(
               children: [
-                // Rank position
+                // Rank
                 SizedBox(
                   width: 36,
                   child: Center(
@@ -164,21 +216,29 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
                 ),
                 const SizedBox(width: 8),
 
-                // Avatar Icon
+                // Avatar — show real photo if available, else icon
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor: u.isCurrentUser ? AppColors.primary.withOpacity(0.2) : Colors.white12,
-                  child: Icon(Icons.person, color: u.isCurrentUser ? AppColors.primary : Colors.white70),
+                  backgroundColor:
+                      u.isCurrentUser ? AppColors.primary.withOpacity(0.2) : Colors.white12,
+                  backgroundImage:
+                      u.avatarUrl.isNotEmpty && u.avatarUrl.startsWith('http')
+                          ? NetworkImage(u.avatarUrl)
+                          : null,
+                  child: u.avatarUrl.isNotEmpty && u.avatarUrl.startsWith('http')
+                      ? null
+                      : Icon(Icons.person,
+                          color: u.isCurrentUser ? AppColors.primary : Colors.white70),
                 ),
                 const SizedBox(width: 16),
 
-                // User details
+                // Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        u.name,
+                        u.isCurrentUser ? '${u.name} (You)' : u.name,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: u.isCurrentUser ? AppColors.primary : Colors.white,
@@ -203,8 +263,13 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            u.rankChange == 0 ? 'No change' : '${u.rankChange.abs()} ranks',
-                            style: const TextStyle(fontSize: 9, color: AppColors.textMutedDark, fontWeight: FontWeight.bold),
+                            u.rankChange == 0
+                                ? 'No change'
+                                : '${u.rankChange.abs()} ranks',
+                            style: const TextStyle(
+                                fontSize: 9,
+                                color: AppColors.textMutedDark,
+                                fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -212,17 +277,24 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> with Sing
                   ),
                 ),
 
-                // Step count
+                // XP
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       '${u.xp}',
-                      style: const TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                      style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white),
                     ),
                     const Text(
                       'XP',
-                      style: TextStyle(fontSize: 9, color: AppColors.primary, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: 9,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),

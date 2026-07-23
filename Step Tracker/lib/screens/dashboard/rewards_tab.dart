@@ -234,10 +234,28 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
 
     if (userProfile == null) return const Center(child: CircularProgressIndicator());
 
-    final currentXp = userProfile.xp;
-    final xpForNextLevel = userProfile.level * 1000;
-    final xpInCurrentLevel = currentXp % 1000;
-    final progressToNext = xpInCurrentLevel / 1000.0;
+    int computedXp = 0;
+    if (historyAsync.hasValue && historyAsync.value != null) {
+      for (var h in historyAsync.value!) {
+        computedXp += h.xpEarned;
+      }
+    }
+    final currentXp = computedXp > userProfile.xp ? computedXp : userProfile.xp;
+    final thresholds = {1:0, 2:100, 3:250, 4:450, 5:700, 6:1000, 7:1400, 8:1900, 9:2500, 10:3200};
+    
+    int currentLevel = 1;
+    for (int i = 10; i >= 1; i--) {
+      if (currentXp >= (thresholds[i] ?? 0)) {
+        currentLevel = i;
+        break;
+      }
+    }
+    
+    final currentLevelBase = thresholds[currentLevel] ?? 0;
+    final nextLevelBase = thresholds[currentLevel + 1] ?? currentLevelBase;
+    final xpInCurrentLevel = currentXp - currentLevelBase;
+    final xpNeededForNext = nextLevelBase - currentLevelBase;
+    final progressToNext = xpNeededForNext > 0 ? (xpInCurrentLevel / xpNeededForNext).clamp(0.0, 1.0) : 1.0;
 
     final badges = badgesAsync.value ?? [];
     final unlockedBadgesCount = badges.where((b) => b.isUnlocked).length;
@@ -318,14 +336,14 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
                                           height: 56,
                                           decoration: BoxDecoration(
                                             gradient: const LinearGradient(
-                                              colors: [AppColors.primary, AppColors.secondary],
+                                              colors: [AppColors.secondary, Color(0xFF10B981)],
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                             ),
                                             shape: BoxShape.circle,
                                             boxShadow: [
                                               BoxShadow(
-                                                color: AppColors.primary.withOpacity(0.4),
+                                                color: AppColors.secondary.withOpacity(0.4),
                                                 blurRadius: 12,
                                                 offset: const Offset(0, 4),
                                               ),
@@ -333,7 +351,7 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
                                           ),
                                           alignment: Alignment.center,
                                           child: Text(
-                                            'Lvl\n${userProfile.level}',
+                                            'Lvl\n$currentLevel',
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13, height: 1.1),
                                           ),
@@ -341,38 +359,40 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
                                         const SizedBox(width: 16),
                                         Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text('XP Progress', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                          const SizedBox(height: 4),
-                                          Text('$currentXp / $xpForNextLevel XP', style: const TextStyle(fontSize: 12, color: AppColors.textSecondaryDark)),
-                                        ],
-                                      ),
-                                    ],
+                                          children: [
+                                            const Text('TOTAL XP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                            const SizedBox(height: 4),
+                                            Text('$currentXp ${currentLevel < 10 ? "/ $nextLevelBase XP" : "XP (Max Level)"}', style: const TextStyle(fontSize: 14, color: AppColors.textSecondaryDark, fontWeight: FontWeight.bold)),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        const Text('TOTAL COINS', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.monetization_on_rounded, color: AppColors.primary, size: 20),
+                                            const SizedBox(width: 6),
+                                            Text('${userProfile.coins}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
+                                          ],
+                                        ),
+                                      ],
+                                    )
+                                  ],
+                                ),
+                                if (currentLevel < 10) ...[
+                                  const SizedBox(height: 16),
+                                  LinearProgressIndicator(
+                                    value: progressToNext,
+                                    backgroundColor: isDark ? Colors.white10 : Colors.black12,
+                                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondary),
+                                    minHeight: 8,
+                                    borderRadius: BorderRadius.circular(4),
                                   ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      const Text('TOTAL COINS', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          const Icon(Icons.monetization_on_rounded, color: AppColors.primary, size: 20),
-                                          const SizedBox(width: 6),
-                                          Text('${userProfile.coins}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24)),
-                                        ],
-                                      ),
-                                    ],
-                                  )
                                 ],
-                              ),
-                              const SizedBox(height: 16),
-                              LinearProgressIndicator(
-                                value: progressToNext,
-                                backgroundColor: isDark ? Colors.white10 : Colors.black12,
-                                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                                minHeight: 8,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
                               const SizedBox(height: 20),
                               const Divider(color: Colors.white10),
                               const SizedBox(height: 16),
@@ -540,7 +560,7 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
                         crossAxisCount: 2,
                         crossAxisSpacing: 16,
                         mainAxisSpacing: 16,
-                        childAspectRatio: 0.72,
+                        childAspectRatio: 0.65,
                       ),
                       itemCount: badgesList.length,
                       itemBuilder: (context, idx) {
@@ -581,12 +601,13 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
                                         ),
                                 ),
                                 const SizedBox(height: 16),
-                                Text(
-                                  badge.title,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    badge.title,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Container(
@@ -621,7 +642,7 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Reward: +${badge.rewardCoins} Coins',
+                                    'Reward: +${badge.rewardCoins} Coins | +${badge.rewardXp} XP',
                                     style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 8, fontWeight: FontWeight.w500),
                                   ),
                                 ],
@@ -688,18 +709,19 @@ class _RewardsTabState extends ConsumerState<RewardsTab> with SingleTickerProvid
                                     ],
                                   ),
                                 ),
-                                if (history.coinsEarned != 0) ...[
+                                if (history.coinsEarned != 0 || history.xpEarned != 0) ...[
                                   const SizedBox(width: 8),
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
-                                      Row(
-                                        children: [
-                                          Text(history.coinsEarned > 0 ? '+${history.coinsEarned}' : '${history.coinsEarned}', style: TextStyle(fontWeight: FontWeight.bold, color: history.coinsEarned > 0 ? AppColors.success : AppColors.danger)),
-                                          const SizedBox(width: 2),
-                                          const Icon(Icons.monetization_on_rounded, size: 12, color: AppColors.primary),
-                                        ],
-                                      ),
+                                      if (history.coinsEarned != 0)
+                                        Row(
+                                          children: [
+                                            Text(history.coinsEarned > 0 ? '+${history.coinsEarned}' : '${history.coinsEarned}', style: TextStyle(fontWeight: FontWeight.bold, color: history.coinsEarned > 0 ? AppColors.success : AppColors.danger)),
+                                            const SizedBox(width: 2),
+                                            const Icon(Icons.monetization_on_rounded, size: 12, color: AppColors.primary),
+                                          ],
+                                        ),
                                       if (history.xpEarned > 0)
                                         Row(
                                           children: [

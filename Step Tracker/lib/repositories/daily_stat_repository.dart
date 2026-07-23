@@ -52,4 +52,20 @@ class DailyStatRepository {
       builder: (data, documentID) => DailyStat.fromJson(data, documentID),
     );
   }
+
+  /// Fetch all daily stats between [from] and [to] (inclusive) for [uid].
+  Future<List<DailyStat>> getAllStatsBetween(
+      String uid, DateTime from, DateTime to) async {
+    final toEndOfDay = DateTime(to.year, to.month, to.day, 23, 59, 59);
+    final snap = await FirebaseFirestore.instance
+        .collection(FirebaseConstants.usersCollection)
+        .doc(uid)
+        .collection(FirebaseConstants.dailyStatsCollection)
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(from))
+        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(toEndOfDay))
+        .get();
+    return snap.docs
+        .map((doc) => DailyStat.fromJson(doc.data(), doc.id))
+        .toList();
+  }
 }

@@ -23,6 +23,7 @@ import 'today_workouts_screen.dart';
 import '../../widgets/premium_steps_card.dart';
 import '../history/route_details_screen.dart';
 import 'activity_details/activity_details_screen.dart';
+import 'notifications_screen.dart';
 
 final showTotalStepsProvider = StateProvider<bool>((ref) => false);
 
@@ -433,6 +434,8 @@ class HomeTab extends ConsumerWidget {
         ? (firestoreSteps / goal).clamp(0.0, 1.0)
         : 0.0;
 
+    final String realWalkingStatus = isTracking ? 'Tracking GPS' : (todayStat?.walkingStatus ?? 'Inactive');
+
     final double todayDistanceKm = walkHistory
         .where(
           (act) =>
@@ -454,8 +457,26 @@ class HomeTab extends ConsumerWidget {
     final int todayCalories = todayStat?.calories ?? 0;
     final int activeMinutes = todayActiveTimeSeconds ~/ 60;
 
-    final double paceMinPerKm = todayDistanceKm > 0
-        ? (activeMinutes / todayDistanceKm)
+    final double stepLengthCm = currentProfile?.stepLength ?? 70.0;
+
+    // Fetch real data directly from Firestore (populated by GPS walks)
+    double displayDistanceKm = todayStat?.distanceKm ?? 0.0;
+    int displayCalories = todayStat?.calories ?? 0;
+    int displayActiveMinutes = todayStat?.activeMinutes ?? 0;
+
+    // Fallback: If real data is 0 (no GPS walks today), compute it accurately from real firestore steps
+    if (displayDistanceKm == 0.0 && firestoreSteps > 0) {
+      displayDistanceKm = (firestoreSteps * stepLengthCm) / 100000.0;
+    }
+    if (displayCalories == 0 && firestoreSteps > 0) {
+      displayCalories = (firestoreSteps * 0.045).toInt();
+    }
+    if (displayActiveMinutes == 0 && firestoreSteps > 0) {
+      displayActiveMinutes = (firestoreSteps / 100).round();
+    }
+
+    final double paceMinPerKm = displayDistanceKm > 0
+        ? (displayActiveMinutes / displayDistanceKm)
         : 0.0;
     final int paceMinutes = paceMinPerKm.toInt();
     final int paceSeconds = ((paceMinPerKm - paceMinutes) * 60).toInt();
@@ -464,14 +485,14 @@ class HomeTab extends ConsumerWidget {
         : "0'00\"";
 
     final String activeMinutesString;
-    if (todayActiveTimeSeconds < 60) {
+    if (todayActiveTimeSeconds > 0 && todayActiveTimeSeconds < 60) {
       activeMinutesString = "${todayActiveTimeSeconds}s";
-    } else if (activeMinutes >= 60) {
-      final hours = activeMinutes ~/ 60;
-      final mins = activeMinutes % 60;
+    } else if (displayActiveMinutes >= 60) {
+      final hours = displayActiveMinutes ~/ 60;
+      final mins = displayActiveMinutes % 60;
       activeMinutesString = "${hours}h ${mins}m";
     } else {
-      activeMinutesString = "${activeMinutes}m";
+      activeMinutesString = "${displayActiveMinutes}m";
     }
 
     int currentStreak = 0;
@@ -635,124 +656,11 @@ class HomeTab extends ConsumerWidget {
                             ref
                                 .read(notificationProvider.notifier)
                                 .markAsRead();
-                            showModalBottomSheet(
-                              context: context,
-                              backgroundColor: Colors.transparent,
-                              builder: (context) {
-                                final sheetDark =
-                                    Theme.of(context).brightness ==
-                                    Brightness.dark;
-                                return Container(
-                                  padding: const EdgeInsets.all(28.0),
-                                  decoration: BoxDecoration(
-                                    color: sheetDark
-                                        ? const Color(0xFF0F172A)
-                                        : Colors.white,
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(30),
-                                      topRight: Radius.circular(30),
-                                    ),
-                                    border: Border.all(
-                                      color: sheetDark
-                                          ? const Color(0x1AFFFFFF)
-                                          : const Color(0xFFCBD5E1),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      const Text(
-                                        'Activity Alerts',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 20,
-                                          color: Colors.white,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                      const SizedBox(height: 24),
-                                      if (notificationState
-                                          .notifications
-                                          .isEmpty)
-                                        const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            vertical: 32.0,
-                                          ),
-                                          child: Text(
-                                            'No new notifications',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        )
-                                      else
-                                        Flexible(
-                                          child: SingleChildScrollView(
-                                            child: Column(
-                                              children: notificationState.notifications.map((notif) {
-                                                final isSuccess = notif['type'] == 'success';
-                                                final iconColor = isSuccess ? AppColors.success : AppColors.primary;
-                                                final iconData = isSuccess ? Icons.check_circle_outline_rounded : Icons.notifications_active_rounded;
-                                                return Padding(
-                                                  padding: const EdgeInsets.only(bottom: 16.0),
-                                                  child: Row(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Container(
-                                                        padding: const EdgeInsets.all(10),
-                                                        decoration: BoxDecoration(
-                                                          color: iconColor.withOpacity(0.12),
-                                                          shape: BoxShape.circle,
-                                                        ),
-                                                        child: Icon(iconData, color: iconColor, size: 20),
-                                                      ),
-                                                      const SizedBox(width: 16),
-                                                      Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                                          children: [
-                                                            Text(
-                                                              notif['title'] ?? 'Notification',
-                                                              style: const TextStyle(
-                                                                fontWeight: FontWeight.bold,
-                                                                fontSize: 13,
-                                                                color: Colors.white,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(height: 4),
-                                                            Text(
-                                                              notif['message'] ?? '',
-                                                              style: const TextStyle(
-                                                                color: AppColors.textSecondaryDark,
-                                                                fontSize: 11,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }).toList(),
-                                            ),
-                                          ),
-                                        ),
-                                      const SizedBox(height: 16),
-                                      CustomButton(
-                                        text: 'Close',
-                                        onPressed: () =>
-                                            Navigator.of(context).pop(),
-                                        height: 48,
-                                        type: ButtonType.primary,
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationsScreen(),
+                              ),
                             );
                           },
                           child: Stack(
@@ -873,7 +781,7 @@ class HomeTab extends ConsumerWidget {
                     totalAppSteps: totalAppSteps,
                     goal: goal,
                     hourlySteps: todayStat?.hourlySteps ?? const {},
-                    walkingStatus: todayStat?.walkingStatus ?? 'Inactive',
+                    walkingStatus: realWalkingStatus,
                     activeMinutes: todayStat?.activeMinutes ?? 0,
                     isCompact: true,
                     onTap: () => Navigator.push(
@@ -885,10 +793,14 @@ class HomeTab extends ConsumerWidget {
                           totalAppSteps: totalAppSteps,
                           goal: goal,
                           hourlySteps: todayStat?.hourlySteps ?? const {},
-                          walkingStatus: todayStat?.walkingStatus ?? 'Inactive',
-                          activeMinutes: todayStat?.activeMinutes ?? 0,
-                          distanceKm: todayStat?.distanceKm ?? 0.0,
-                          calories: todayStat?.calories ?? 0,
+                          walkingStatus: realWalkingStatus,
+                          activeMinutes: displayActiveMinutes,
+                          distanceKm: displayDistanceKm,
+                          calories: displayCalories,
+                          onRewardTap: () {
+                            Navigator.pop(context); // Close TodayWorkoutsScreen
+                            ref.read(dashboardTabIndexProvider.notifier).state = 3; // Go to Rewards tab
+                          },
                         ),
                       ),
                     ),
@@ -905,7 +817,7 @@ class HomeTab extends ConsumerWidget {
                           icon: Icons.local_fire_department_rounded,
                           label: 'Calories',
                           value:
-                              '${todayWalkCalories > 0 ? todayWalkCalories : todayCalories}',
+                              '$displayCalories',
                           unit: 'kcal',
                           color: AppColors.danger,
                           isDark: isDark,
@@ -921,8 +833,8 @@ class HomeTab extends ConsumerWidget {
                         _buildMetricCard(
                           icon: Icons.location_on_rounded,
                           label: 'Distance',
-                          value: todayDistanceKm < 1.0 ? '${(todayDistanceKm * 1000).toInt()}' : '${todayDistanceKm.toStringAsFixed(2)}',
-                          unit: todayDistanceKm < 1.0 ? 'm' : 'km',
+                          value: displayDistanceKm < 1.0 ? '${(displayDistanceKm * 1000).toInt()}' : displayDistanceKm.toStringAsFixed(2),
+                          unit: displayDistanceKm < 1.0 ? 'm' : 'km',
                           color: AppColors.secondary,
                           isDark: isDark,
                           onTap: () => Navigator.push(
@@ -1138,10 +1050,14 @@ class HomeTab extends ConsumerWidget {
                         // AI Coach Card
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => _openQuickAction(
-                              context,
-                              const AiCoachScreen(),
-                            ),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const AiCoachScreen(),
+                                ),
+                              );
+                            },
                             child: Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(

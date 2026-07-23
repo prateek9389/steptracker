@@ -17,6 +17,8 @@ class DailyStat {
   final DateTime lastUpdated;
   final double progress;
   final int remainingSteps;
+  final List<int> awardedStepMilestones;
+  final List<int> awardedDistanceMilestones;
 
   DailyStat({
     required this.dateId,
@@ -33,6 +35,8 @@ class DailyStat {
     DateTime? lastUpdated,
     this.progress = 0.0,
     this.remainingSteps = 0,
+    this.awardedStepMilestones = const [],
+    this.awardedDistanceMilestones = const [],
   }) : lastUpdated = lastUpdated ?? DateTime.now();
 
   factory DailyStat.fromJson(Map<String, dynamic> json, String documentId) {
@@ -54,6 +58,8 @@ class DailyStat {
       lastUpdated: (json['lastUpdated'] as Timestamp?)?.toDate() ?? DateTime.now(),
       progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
       remainingSteps: json['remainingSteps'] as int? ?? 0,
+      awardedStepMilestones: List<int>.from(json['awardedStepMilestones'] ?? []),
+      awardedDistanceMilestones: List<int>.from(json['awardedDistanceMilestones'] ?? []),
     );
   }
 
@@ -72,6 +78,8 @@ class DailyStat {
       'lastUpdated': Timestamp.fromDate(lastUpdated),
       'progress': progress,
       'remainingSteps': remainingSteps,
+      'awardedStepMilestones': awardedStepMilestones,
+      'awardedDistanceMilestones': awardedDistanceMilestones,
     };
   }
 
@@ -89,6 +97,8 @@ class DailyStat {
     DateTime? lastUpdated,
     double? progress,
     int? remainingSteps,
+    List<int>? awardedStepMilestones,
+    List<int>? awardedDistanceMilestones,
   }) {
     return DailyStat(
       dateId: dateId,
@@ -105,6 +115,8 @@ class DailyStat {
       lastUpdated: lastUpdated ?? this.lastUpdated,
       progress: progress ?? this.progress,
       remainingSteps: remainingSteps ?? this.remainingSteps,
+      awardedStepMilestones: awardedStepMilestones ?? this.awardedStepMilestones,
+      awardedDistanceMilestones: awardedDistanceMilestones ?? this.awardedDistanceMilestones,
     );
   }
 }

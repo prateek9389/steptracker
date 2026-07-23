@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/glass_card.dart';
 import '../../providers/profile_provider.dart';
@@ -15,6 +17,37 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _notificationsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotificationPreference();
+  }
+
+  Future<void> _loadNotificationPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+    });
+  }
+
+  Future<void> _toggleNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (value) {
+      final status = await Permission.notification.request();
+      if (status.isGranted) {
+        await prefs.setBool('notifications_enabled', true);
+        setState(() => _notificationsEnabled = true);
+      } else {
+        setState(() => _notificationsEnabled = false);
+      }
+    } else {
+      await prefs.setBool('notifications_enabled', false);
+      setState(() => _notificationsEnabled = false);
+    }
+  }
+
   void _showStepGoalDialog(BuildContext context, int currentGoal) {
     double tempGoal = currentGoal.toDouble();
     showDialog(
@@ -211,6 +244,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ],
                       ),
                       _buildDivider(isDark),
+                      // Push Notifications Toggle
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.accent.withOpacity(0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.notifications_active_outlined, color: AppColors.accent, size: 20),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Push Notifications',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'Outfit'),
+                                ),
+                                Text(
+                                  _notificationsEnabled ? 'Reminders & Rewards ON' : 'Notifications OFF',
+                                  style: TextStyle(
+                                    color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _notificationsEnabled,
+                            activeColor: AppColors.accent,
+                            onChanged: _toggleNotifications,
+                          ),
+                        ],
+                      ),
                       _buildRowItem(
                         icon: Icons.security_rounded,
                         iconColor: AppColors.accent,

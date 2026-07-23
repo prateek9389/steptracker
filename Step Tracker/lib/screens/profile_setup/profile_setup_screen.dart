@@ -90,6 +90,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         setState(() {
           _customAvatarUrl = data['url'];
         });
+        
+        // Auto-save the profile picture to Firestore immediately
+        final existingProfile = ref.read(profileStreamProvider).value;
+        if (existingProfile != null && _customAvatarUrl != null) {
+          await ref.read(profileRepositoryProvider).saveProfile(
+            existingProfile.copyWith(photoUrl: _customAvatarUrl)
+          );
+        }
       } else {
         throw Exception('Failed to upload image');
       }
@@ -110,6 +118,50 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     }
   }
 
+  Future<void> _showManualInputDialog({
+    required String title,
+    required num currentValue,
+    required num min,
+    required num max,
+    required Function(num) onSave,
+    bool isInt = false,
+  }) async {
+    final controller = TextEditingController(
+        text: isInt ? currentValue.toInt().toString() : currentValue.toStringAsFixed(1));
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Enter $title'),
+          content: TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              hintText: 'Between $min and $max',
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () {
+                final val = num.tryParse(controller.text);
+                if (val != null && val >= min && val <= max) {
+                  onSave(val);
+                  Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Please enter a valid number between $min and $max'), backgroundColor: AppColors.danger),
+                  );
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _saveProfile() async {
     if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -123,22 +175,32 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     final existingProfile = ref.read(profileStreamProvider).value;
 
-    final newProfile = UserProfile(
-      uid: user.uid,
-      name: _nameController.text,
-      email: user.email ?? '',
-      photoUrl: _customAvatarUrl ?? '',
-      height: double.parse(_height.toStringAsFixed(1)),
-      weight: double.parse(_weight.toStringAsFixed(1)),
-      age: _age,
-      gender: _selectedGender,
-      dailyGoal: _dailyGoal.toInt(),
-      stepLength: double.parse(_stepLength.toStringAsFixed(1)),
-      createdAt: existingProfile?.createdAt ?? DateTime.now(),
-      lastLogin: DateTime.now(),
-      coins: existingProfile?.coins ?? 0,
-      level: existingProfile?.level ?? 1,
-    );
+    final newProfile = existingProfile != null
+        ? existingProfile.copyWith(
+            name: _nameController.text,
+            photoUrl: _customAvatarUrl ?? '',
+            height: double.parse(_height.toStringAsFixed(1)),
+            weight: double.parse(_weight.toStringAsFixed(1)),
+            age: _age,
+            gender: _selectedGender,
+            dailyGoal: _dailyGoal.toInt(),
+            stepLength: double.parse(_stepLength.toStringAsFixed(1)),
+            lastLogin: DateTime.now(),
+          )
+        : UserProfile(
+            uid: user.uid,
+            name: _nameController.text,
+            email: user.email ?? '',
+            photoUrl: _customAvatarUrl ?? '',
+            height: double.parse(_height.toStringAsFixed(1)),
+            weight: double.parse(_weight.toStringAsFixed(1)),
+            age: _age,
+            gender: _selectedGender,
+            dailyGoal: _dailyGoal.toInt(),
+            stepLength: double.parse(_stepLength.toStringAsFixed(1)),
+            createdAt: DateTime.now(),
+            lastLogin: DateTime.now(),
+          );
 
     await ref.read(profileRepositoryProvider).saveProfile(newProfile);
 
@@ -364,8 +426,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Age', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text('$_age years',
-                                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                                GestureDetector(
+                                  onTap: () => _showManualInputDialog(
+                                    title: 'Age',
+                                    currentValue: _age,
+                                    min: 10,
+                                    max: 100,
+                                    isInt: true,
+                                    onSave: (v) => setState(() => _age = v.toInt()),
+                                  ),
+                                  child: Text('$_age years',
+                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13, decoration: TextDecoration.underline, decorationColor: AppColors.primary)),
+                                ),
                               ],
                             ),
                             Slider(
@@ -382,8 +454,17 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Height', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text('${_height.toStringAsFixed(0)} cm',
-                                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                                GestureDetector(
+                                  onTap: () => _showManualInputDialog(
+                                    title: 'Height (cm)',
+                                    currentValue: _height,
+                                    min: 120,
+                                    max: 220,
+                                    onSave: (v) => setState(() => _height = v.toDouble()),
+                                  ),
+                                  child: Text('${_height.toStringAsFixed(0)} cm',
+                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13, decoration: TextDecoration.underline, decorationColor: AppColors.primary)),
+                                ),
                               ],
                             ),
                             Slider(
@@ -399,8 +480,17 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Weight', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text('${_weight.toStringAsFixed(1)} kg',
-                                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                                GestureDetector(
+                                  onTap: () => _showManualInputDialog(
+                                    title: 'Weight (kg)',
+                                    currentValue: _weight,
+                                    min: 40,
+                                    max: 150,
+                                    onSave: (v) => setState(() => _weight = v.toDouble()),
+                                  ),
+                                  child: Text('${_weight.toStringAsFixed(1)} kg',
+                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13, decoration: TextDecoration.underline, decorationColor: AppColors.primary)),
+                                ),
                               ],
                             ),
                             Slider(
@@ -416,8 +506,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Daily Step Goal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text('${_dailyGoal.toInt()} Steps',
-                                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                                GestureDetector(
+                                  onTap: () => _showManualInputDialog(
+                                    title: 'Daily Step Goal',
+                                    currentValue: _dailyGoal,
+                                    min: 2000,
+                                    max: 50000,
+                                    isInt: true,
+                                    onSave: (v) => setState(() => _dailyGoal = v.toDouble()),
+                                  ),
+                                  child: Text('${_dailyGoal.toInt()} Steps',
+                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13, decoration: TextDecoration.underline, decorationColor: AppColors.primary)),
+                                ),
                               ],
                             ),
                             Slider(
@@ -433,9 +533,18 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Avg Step Length', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text('${_stepLength.toStringAsFixed(0)} cm',
-                                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                                const Text('Step Length', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                GestureDetector(
+                                  onTap: () => _showManualInputDialog(
+                                    title: 'Step Length (cm)',
+                                    currentValue: _stepLength,
+                                    min: 40,
+                                    max: 120,
+                                    onSave: (v) => setState(() => _stepLength = v.toDouble()),
+                                  ),
+                                  child: Text('${_stepLength.toStringAsFixed(1)} cm',
+                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13, decoration: TextDecoration.underline, decorationColor: AppColors.primary)),
+                                ),
                               ],
                             ),
                             Slider(

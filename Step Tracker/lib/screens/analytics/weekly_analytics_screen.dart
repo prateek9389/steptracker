@@ -6,8 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/walk_provider.dart';
 import '../../providers/stats_provider.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../providers/reward_provider.dart';
+import '../../providers/step_provider.dart';
 import '../../models/daily_stat.dart';
 import '../../models/walk_session.dart';
+import '../../models/reward_history.dart';
 import '../ai_coach/ai_coach_screen.dart';
 
 class WeeklyAnalyticsScreen extends ConsumerStatefulWidget {
@@ -30,6 +33,8 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
   List<String> _dayNames = [];
   int _prevTotal = 0;
   List<WalkSession> _walks = [];
+  Map<String, DailyStat> _allStatsMap = {};
+  DateTime _referenceDate = DateTime.now();
   
   bool _statsComputedForCurrentPeriod = false;
   String _lastComputedPeriod = '';
@@ -46,17 +51,35 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
   double get _pctChange  => _prevTotal > 0 ? ((_totalSteps - _prevTotal) / _prevTotal) * 100 : 100.0;
 
   void _computeStats() {
-    if (_statsComputedForCurrentPeriod && _lastComputedPeriod == _selectedPeriod) return;
-    
+
     final statsList = ref.watch(allDailyStatsStreamProvider).value ?? [];
     _walks = ref.watch(walkHistoryStreamProvider).value ?? [];
     
-    final Map<String, DailyStat> statsMap = {};
+    _allStatsMap = {};
     for (var s in statsList) {
-      statsMap['${s.date.year}-${s.date.month}-${s.date.day}'] = s;
+      _allStatsMap['${s.date.year}-${s.date.month}-${s.date.day}'] = s;
     }
 
-    final now = DateTime.now();
+    final actualNow = DateTime.now();
+    final todayKey = '${actualNow.year}-${actualNow.month}-${actualNow.day}';
+    final stepState = ref.watch(stepProvider);
+
+    // Override today's entry in _allStatsMap with real-time app state
+    _allStatsMap[todayKey] = DailyStat(
+      dateId: todayKey,
+      uid: '',
+      date: actualNow,
+      steps: stepState.todaySteps,
+      distanceKm: stepState.todayDistanceKm,
+      calories: stepState.todayCalories,
+      activeMinutes: stepState.activeMinutes,
+      walkingTimeSeconds: stepState.activeMinutes * 60,
+      goalCompleted: stepState.todaySteps >= 10000,
+      hourlySteps: stepState.hourlySteps,
+      walkingStatus: stepState.walkingStatus,
+    );
+
+    final now = _referenceDate;
     
     int numPoints = 7;
     if (_selectedPeriod == 'Day') numPoints = 1;
@@ -78,12 +101,12 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
       _dates[0] = now.day;
       _dayNames[0] = DateFormat('EEEE').format(now);
       final k = '${now.year}-${now.month}-${now.day}';
-      if (statsMap.containsKey(k)) {
-        final s = statsMap[k]!;
+      if (_allStatsMap.containsKey(k)) {
+        final s = _allStatsMap[k]!;
         _steps[0] = s.steps; _distance[0] = s.distanceKm; _calories[0] = s.calories; _actMin[0] = s.activeMinutes;
       }
       final yK = '${now.subtract(const Duration(days: 1)).year}-${now.subtract(const Duration(days: 1)).month}-${now.subtract(const Duration(days: 1)).day}';
-      if (statsMap.containsKey(yK)) _prevTotal = statsMap[yK]!.steps;
+      if (_allStatsMap.containsKey(yK)) _prevTotal = _allStatsMap[yK]!.steps;
       _selectedIndex = 0;
     } else if (_selectedPeriod == 'Week') {
       for (int i = 0; i < 7; i++) {
@@ -92,15 +115,15 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
         _dates[i] = date.day;
         _dayNames[i] = DateFormat('EEEE').format(date);
         final k = '${date.year}-${date.month}-${date.day}';
-        if (statsMap.containsKey(k)) {
-          final s = statsMap[k]!;
+        if (_allStatsMap.containsKey(k)) {
+          final s = _allStatsMap[k]!;
           _steps[i] = s.steps; _distance[i] = s.distanceKm; _calories[i] = s.calories; _actMin[i] = s.activeMinutes;
         }
       }
       for (int i = 0; i < 7; i++) {
         final date = now.subtract(Duration(days: 13 - i));
         final k = '${date.year}-${date.month}-${date.day}';
-        if (statsMap.containsKey(k)) _prevTotal += statsMap[k]!.steps;
+        if (_allStatsMap.containsKey(k)) _prevTotal += _allStatsMap[k]!.steps;
       }
       if (_selectedIndex < 0 || _selectedIndex > 6) _selectedIndex = 6;
     } else if (_selectedPeriod == 'Month') {
@@ -114,8 +137,8 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
         for (int d = 0; d < 7; d++) {
           final date = startDate.add(Duration(days: d));
           final k = '${date.year}-${date.month}-${date.day}';
-          if (statsMap.containsKey(k)) {
-            final s = statsMap[k]!;
+          if (_allStatsMap.containsKey(k)) {
+            final s = _allStatsMap[k]!;
             _steps[i] += s.steps; _distance[i] += s.distanceKm; _calories[i] += s.calories; _actMin[i] += s.activeMinutes;
           }
         }
@@ -123,7 +146,7 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
       for (int d = 0; d < 28; d++) {
         final date = now.subtract(Duration(days: 28 + d));
         final k = '${date.year}-${date.month}-${date.day}';
-        if (statsMap.containsKey(k)) _prevTotal += statsMap[k]!.steps;
+        if (_allStatsMap.containsKey(k)) _prevTotal += _allStatsMap[k]!.steps;
       }
       if (_selectedIndex < 0 || _selectedIndex > 3) _selectedIndex = 3;
     } else if (_selectedPeriod == 'Year') {
@@ -133,7 +156,7 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
         _dates[i] = m.month;
         _dayNames[i] = DateFormat('MMMM yyyy').format(m);
         
-        statsMap.forEach((k, s) {
+        _allStatsMap.forEach((k, s) {
           if (s.date.year == m.year && s.date.month == m.month) {
             _steps[i] += s.steps; _distance[i] += s.distanceKm; _calories[i] += s.calories; _actMin[i] += s.activeMinutes;
           }
@@ -141,7 +164,7 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
       }
       for (int mOffset = 0; mOffset < 12; mOffset++) {
         final m = DateTime(now.year - 1, now.month - mOffset, 1);
-        statsMap.forEach((k, s) {
+        _allStatsMap.forEach((k, s) {
           if (s.date.year == m.year && s.date.month == m.month) {
             _prevTotal += s.steps;
           }
@@ -201,7 +224,7 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
                 Text('$_selectedPeriod Progress',
                     style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 22, fontFamily: 'Outfit')),
                 Row(children: [
-                  Text(_selectedPeriod == 'Day' ? DateFormat('d MMM yyyy').format(DateTime.now()) : _selectedPeriod == 'Week' ? '${DateFormat('d MMM').format(DateTime.now().subtract(const Duration(days: 6)))} - ${DateFormat('d MMM yyyy').format(DateTime.now())}' : _selectedPeriod == 'Month' ? '${DateFormat('d MMM').format(DateTime.now().subtract(const Duration(days: 27)))} - ${DateFormat('d MMM yyyy').format(DateTime.now())}' : '${DateFormat('MMM yyyy').format(DateTime(DateTime.now().year, DateTime.now().month - 11, 1))} - ${DateFormat('MMM yyyy').format(DateTime.now())}',
+                  Text(_selectedPeriod == 'Day' ? DateFormat('d MMM yyyy').format(_referenceDate) : _selectedPeriod == 'Week' ? '${DateFormat('d MMM').format(_referenceDate.subtract(const Duration(days: 6)))} - ${DateFormat('d MMM yyyy').format(_referenceDate)}' : _selectedPeriod == 'Month' ? '${DateFormat('d MMM').format(_referenceDate.subtract(const Duration(days: 27)))} - ${DateFormat('d MMM yyyy').format(_referenceDate)}' : '${DateFormat('MMM yyyy').format(DateTime(_referenceDate.year, _referenceDate.month - 11, 1))} - ${DateFormat('MMM yyyy').format(_referenceDate)}',
                       style: TextStyle(color: textPrimary.withOpacity(0.5), fontSize: 13)),
                   const SizedBox(width: 4),
                   Icon(Icons.keyboard_arrow_down_rounded, size: 14,
@@ -210,14 +233,42 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
               ],
             ),
             actions: [
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+              GestureDetector(
+                onTap: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: _referenceDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                    builder: (context, child) {
+                      final isDark = Theme.of(context).brightness == Brightness.dark;
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: isDark
+                              ? const ColorScheme.dark(primary: _purple)
+                              : const ColorScheme.light(primary: _purple),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null && picked != _referenceDate) {
+                    setState(() {
+                      _referenceDate = picked;
+                      _statsComputedForCurrentPeriod = false;
+                      _selectedIndex = -1;
+                    });
+                  }
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(right: 16),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                  ),
+                  child: Icon(Icons.calendar_month_rounded, color: textPrimary, size: 20),
                 ),
-                child: Icon(Icons.calendar_month_rounded, color: textPrimary, size: 20),
               ),
             ],
           ),
@@ -715,18 +766,19 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
     final border = isDark ? Colors.white12 : const Color(0xFFFEF3C7);
 
     if (_steps.isEmpty) return const SizedBox.shrink();
-    int maxS = 0, maxD = 0, maxC = 0;
-    for(int j=1; j<_steps.length; j++) {
-      if(_steps[j] > _steps[maxS]) maxS = j;
-      if(_distance[j] > _distance[maxD]) maxD = j;
-      if(_calories[j] > _calories[maxC]) maxC = j;
+    DailyStat? bestSteps, bestDist, bestCal;
+    for (var stat in _allStatsMap.values) {
+      if (bestSteps == null || stat.steps > bestSteps.steps) bestSteps = stat;
+      if (bestDist == null || stat.distanceKm > bestDist.distanceKm) bestDist = stat;
+      if (bestCal == null || stat.calories > bestCal.calories) bestCal = stat;
     }
-    final bdName = _steps[maxS] > 0 ? _dayNames[maxS] : '-';
-    final bdVal = _steps[maxS] > 0 ? '${NumberFormat('#,###').format(_steps[maxS])} steps' : '-';
-    final ldName = _distance[maxD] > 0 ? '${_distance[maxD].toStringAsFixed(1)} km' : '-';
-    final ldSub = _distance[maxD] > 0 ? _dayNames[maxD] : '-';
-    final mcName = _calories[maxC] > 0 ? '${_calories[maxC]} kcal' : '-';
-    final mcSub = _calories[maxC] > 0 ? _dayNames[maxC] : '-';
+
+    final bdName = bestSteps != null && bestSteps.steps > 0 ? DateFormat('EEEE').format(bestSteps.date) : '-';
+    final bdVal = bestSteps != null && bestSteps.steps > 0 ? '${NumberFormat('#,###').format(bestSteps.steps)} steps' : '-';
+    final ldName = bestDist != null && bestDist.distanceKm > 0 ? '${bestDist.distanceKm.toStringAsFixed(1)} km' : '-';
+    final ldSub = bestDist != null && bestDist.distanceKm > 0 ? DateFormat('EEEE').format(bestDist.date) : '-';
+    final mcName = bestCal != null && bestCal.calories > 0 ? '${bestCal.calories} kcal' : '-';
+    final mcSub = bestCal != null && bestCal.calories > 0 ? DateFormat('EEEE').format(bestCal.date) : '-';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -751,7 +803,7 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
               return Column(
                 children: [
                   Row(children: [
-                    Expanded(child: _perfItem(_selectedPeriod == 'Year' ? 'Best Month' : _selectedPeriod == 'Month' ? 'Best Week' : 'Best Day', bdName, bdVal, isDark, _purple)),
+                    Expanded(child: _perfItem('Best Day', bdName, bdVal, isDark, _purple)),
                     _perfDiv(isDark),
                     Expanded(child: _perfItem('Longest Walk', ldName, ldSub, isDark, isDark ? Colors.white70 : Colors.black54)),
                   ]),
@@ -765,7 +817,7 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
               );
             }
             return Row(children: [
-              Expanded(child: _perfItem(_selectedPeriod == 'Year' ? 'Best Month' : _selectedPeriod == 'Month' ? 'Best Week' : 'Best Day', bdName, bdVal, isDark, _purple)),
+              Expanded(child: _perfItem('Best Day', bdName, bdVal, isDark, _purple)),
               _perfDiv(isDark),
               Expanded(child: _perfItem('Longest Walk', ldName, ldSub, isDark, isDark ? Colors.white70 : Colors.black54)),
               _perfDiv(isDark),
@@ -800,11 +852,11 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
     final border = isDark ? Colors.white12 : const Color(0xFFEDE9FE);
     return GestureDetector(
       onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.transparent,
-          builder: (context) => const AiCoachScreen(),
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AiCoachScreen(),
+          ),
         );
       },
       child: Container(
@@ -878,6 +930,39 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
       ]),
     );
 
+    final historyAsync = ref.watch(rewardHistoryStreamProvider);
+    int periodCoins = 0;
+    int periodXp = 0;
+    String? latestBadgeTitle;
+
+    if (historyAsync.hasValue && historyAsync.value != null) {
+      final now = DateTime.now();
+      DateTime startDate;
+      if (_selectedPeriod == 'Day') {
+        startDate = DateTime(now.year, now.month, now.day);
+      } else if (_selectedPeriod == 'Week') {
+        startDate = now.subtract(const Duration(days: 7));
+      } else if (_selectedPeriod == 'Month') {
+        startDate = now.subtract(const Duration(days: 30));
+      } else {
+        startDate = now.subtract(const Duration(days: 365));
+      }
+
+      for (var h in historyAsync.value!) {
+        if (h.timestamp.isAfter(startDate)) {
+          periodCoins += h.coinsEarned.toInt();
+          periodXp += h.xpEarned.toInt();
+          if (h.type == RewardHistoryType.badgeEarned && latestBadgeTitle == null) {
+            latestBadgeTitle = h.title.replaceAll('Badge Unlocked: ', '').replaceAll('Achievement: ', '');
+          }
+        }
+      }
+    }
+    
+    final badgeLabel = latestBadgeTitle != null 
+        ? latestBadgeTitle.split(' ').join('\n') 
+        : 'No\nBadge';
+
     final rewardsCard = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20), border: Border.all(color: border),
@@ -890,12 +975,12 @@ class _WeeklyAnalyticsScreenState extends ConsumerState<WeeklyAnalyticsScreen> {
           Text('Rewards Earned', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
         ]),
         const SizedBox(height: 16),
-        Row(children: [
-          _rewardBadge('🪙', '+250', 'Coins', isDark),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          _rewardBadge('🪙', '+$periodCoins', 'Coins', isDark),
           const SizedBox(width: 12),
-          _rewardBadge('⭐', '+100', 'XP', isDark),
+          _rewardBadge('⭐', '+$periodXp', 'XP', isDark),
           const SizedBox(width: 12),
-          _rewardBadge('🏅', '', 'Weekly\nWalker', isDark, small: true),
+          _rewardBadge('🏅', '', badgeLabel, isDark, small: true),
         ]),
       ]),
     );

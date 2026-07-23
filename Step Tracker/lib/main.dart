@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'theme/app_theme.dart';
 import 'providers/theme_provider.dart';
@@ -24,12 +25,15 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('GEMINI_API_KEY', dotenv.env['GEMINI_API_KEY'] ?? '');
 
   // Initialize background tasks and notifications
   await NotificationService().initialize();
   await BackgroundTaskService().initialize();
-  // Register the 2 hour reminder task
+  // Register background tasks
   await BackgroundTaskService().registerStepReminderTask();
+  await BackgroundTaskService().registerRewardNotificationTask();
   
   try {
     await Firebase.initializeApp(

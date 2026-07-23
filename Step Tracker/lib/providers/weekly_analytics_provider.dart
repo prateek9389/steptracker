@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:stride_ai/models/daily_stat.dart';
 import 'package:stride_ai/models/walk_session.dart';
 import 'package:stride_ai/repositories/daily_stat_repository.dart';
 import 'package:stride_ai/providers/auth_provider.dart';
-import 'package:stride_ai/providers/walk_provider.dart';
-import 'package:stride_ai/providers/stats_provider.dart';
 
 class WeeklyAnalyticsState {
   final bool isLoading;
@@ -90,56 +89,80 @@ class WeeklyAnalyticsState {
 class WeeklyAnalyticsNotifier extends StateNotifier<WeeklyAnalyticsState> {
   final Ref _ref;
   final DailyStatRepository _repository = DailyStatRepository();
-  DateTime _currentDate = DateTime.now();
 
   WeeklyAnalyticsNotifier(this._ref) : super(WeeklyAnalyticsState()) {
     _init();
   }
 
-  void _init() {
-    final now = DateTime(2026, 7, 12); // Sunday, 12 Jul 2026
-    _currentDate = now;
-    final startOfWeek = DateTime(2026, 7, 6);
+  Future<void> _init() async {
+    try {
+      final uid = _ref.read(currentUserProvider)?.uid;
+      if (uid == null) {
+        state = state.copyWith(isLoading: false, error: 'Not logged in');
+        return;
+      }
 
-    // Current Week Demo Data
-    final currentWeekStats = [
-      DailyStat(dateId: '2026-7-6', uid: 'demo', steps: 8245, distanceKm: 6.3, calories: 352, walkingTimeSeconds: 78 * 60, activeMinutes: 78, goalCompleted: false, date: DateTime(2026, 7, 6)),
-      DailyStat(dateId: '2026-7-7', uid: 'demo', steps: 9100, distanceKm: 6.5, calories: 390, walkingTimeSeconds: 72 * 60, activeMinutes: 72, goalCompleted: false, date: DateTime(2026, 7, 7)),
-      DailyStat(dateId: '2026-7-8', uid: 'demo', steps: 10325, distanceKm: 7.4, calories: 440, walkingTimeSeconds: 84 * 60, activeMinutes: 84, goalCompleted: true, date: DateTime(2026, 7, 8)),
-      DailyStat(dateId: '2026-7-9', uid: 'demo', steps: 6120, distanceKm: 4.4, calories: 260, walkingTimeSeconds: 48 * 60, activeMinutes: 48, goalCompleted: false, date: DateTime(2026, 7, 9)),
-      DailyStat(dateId: '2026-7-10', uid: 'demo', steps: 11450, distanceKm: 8.9, calories: 480, walkingTimeSeconds: 92 * 60, activeMinutes: 92, goalCompleted: true, date: DateTime(2026, 7, 10)),
-      DailyStat(dateId: '2026-7-11', uid: 'demo', steps: 8740, distanceKm: 6.2, calories: 525, walkingTimeSeconds: 70 * 60, activeMinutes: 70, goalCompleted: false, date: DateTime(2026, 7, 11)),
-      DailyStat(dateId: '2026-7-12', uid: 'demo', steps: 9440, distanceKm: 5.9, calories: 403, walkingTimeSeconds: 61 * 60, activeMinutes: 61, goalCompleted: false, date: DateTime(2026, 7, 12)),
-    ];
+      final now = DateTime.now();
 
-    // Previous Week Demo Data (Total ~58,100 steps)
-    final previousWeekStats = List.generate(7, (i) {
-      return DailyStat(
-        dateId: '2026-6-${29 + i}', uid: 'demo', steps: 8300, distanceKm: 5.5, calories: 300, walkingTimeSeconds: 60 * 60, activeMinutes: 60, goalCompleted: false, date: DateTime(2026, 6, 29).add(Duration(days: i)),
+      // Monday of current week
+      final monday = now.subtract(Duration(days: now.weekday - 1));
+      final mondayMidnight = DateTime(monday.year, monday.month, monday.day);
+
+      // Monday of previous week
+      final prevMonday = mondayMidnight.subtract(const Duration(days: 7));
+
+      // Fetch all daily stats
+      final allStats = await _repository.getAllStatsBetween(uid, prevMonday, now);
+
+      // Partition into current / previous week
+      final currentWeekStats = allStats
+          .where((s) => !s.date.isBefore(mondayMidnight))
+          .toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
+
+      final previousWeekStats = allStats
+          .where((s) => !s.date.isBefore(prevMonday) && s.date.isBefore(mondayMidnight))
+          .toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
+
+      // Fetch this week's walk sessions
+      final walkSessions = await _fetchCurrentWeekWalks(uid, mondayMidnight);
+
+      state = state.copyWith(
+        isLoading: false,
+        currentWeekStats: currentWeekStats,
+        previousWeekStats: previousWeekStats,
+        currentWeekWalks: walkSessions,
+        error: null,
       );
-    });
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
 
-    // Recent Walks Demo Data
-    final currentWeekWalks = [
-      WalkSession(id: '1', uid: 'demo', trackingStatus: TrackingStatus.completed, startTime: DateTime(2026, 7, 12, 7, 32), steps: 9000, distanceKm: 7.5, calories: 400, durationSeconds: 4500, route: [], currentPaceString: '8:45', avgSpeedKmH: 6.0),
-      WalkSession(id: '2', uid: 'demo', trackingStatus: TrackingStatus.completed, startTime: DateTime(2026, 7, 11, 18, 15), steps: 6000, distanceKm: 5.4, calories: 250, durationSeconds: 3200, route: [], currentPaceString: '9:12', avgSpeedKmH: 5.5),
-      WalkSession(id: '3', uid: 'demo', trackingStatus: TrackingStatus.completed, startTime: DateTime(2026, 7, 11, 7, 10), steps: 10000, distanceKm: 8.2, calories: 450, durationSeconds: 5000, route: [], currentPaceString: '8:55', avgSpeedKmH: 6.2),
-      // Dummy entry to satisfy longest walk correctly matching Friday
-      WalkSession(id: '4', uid: 'demo', trackingStatus: TrackingStatus.completed, startTime: DateTime(2026, 7, 10, 8, 00), steps: 11000, distanceKm: 8.9, calories: 480, durationSeconds: 5200, route: [], currentPaceString: '8:55', avgSpeedKmH: 6.1),
-    ];
-    
-    currentWeekWalks.sort((a, b) => b.startTime.compareTo(a.startTime));
-
-    state = state.copyWith(
-      isLoading: false,
-      currentWeekStats: currentWeekStats,
-      previousWeekStats: previousWeekStats,
-      currentWeekWalks: currentWeekWalks,
-      error: null,
-    );
+  Future<List<WalkSession>> _fetchCurrentWeekWalks(
+      String uid, DateTime mondayMidnight) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('walk_sessions')
+          .where('startTime',
+              isGreaterThanOrEqualTo: Timestamp.fromDate(mondayMidnight))
+          .where('trackingStatus', isEqualTo: 'completed')
+          .orderBy('startTime', descending: true)
+          .get();
+      return snap.docs
+          .map((doc) => WalkSession.fromJson(doc.data(), doc.id))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 }
 
-final weeklyAnalyticsProvider = StateNotifierProvider.autoDispose<WeeklyAnalyticsNotifier, WeeklyAnalyticsState>((ref) {
+final weeklyAnalyticsProvider =
+    StateNotifierProvider.autoDispose<WeeklyAnalyticsNotifier, WeeklyAnalyticsState>(
+        (ref) {
   return WeeklyAnalyticsNotifier(ref);
 });

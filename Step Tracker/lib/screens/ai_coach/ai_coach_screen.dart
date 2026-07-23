@@ -59,73 +59,53 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final screenHeight = MediaQuery.of(context).size.height;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        height: (screenHeight * 0.90) - (bottomInset > 0 ? bottomInset : 0),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(32), topRight: Radius.circular(32)),
-        border: Border.all(
-          color: isDark ? const Color(0x1AFFFFFF) : const Color(0xFFE2E8F0),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        children: [
-          // Header drawer grabber
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12.0),
-            child: Container(
-              width: 50,
-              height: 5,
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
-                borderRadius: BorderRadius.circular(10),
-              ),
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        title: Row(
+          children: [
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              icon: Icon(Icons.arrow_back_ios_new_rounded, color: isDark ? Colors.white : AppColors.textLight, size: 20),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-          ),
-
-          // Title Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-            child: Row(
+            const SizedBox(width: 16),
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: AppColors.primary.withOpacity(0.2),
+              child: const Icon(Icons.psychology_rounded, color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.primary.withOpacity(0.2),
-                  child: const Icon(Icons.psychology_rounded, color: AppColors.primary, size: 24),
+                Text(
+                  'Step Tracker Coach',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: isDark ? Colors.white : AppColors.textLight,
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
                   children: [
-                    Text(
-                      'StrideAI Coach',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: isDark ? Colors.white : AppColors.textLight,
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
-                        const SizedBox(width: 6),
-                        const Text('Online', style: TextStyle(fontSize: 10, color: AppColors.textMutedDark, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
+                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: AppColors.success, shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    const Text('Online', style: TextStyle(fontSize: 10, color: AppColors.textMutedDark, fontWeight: FontWeight.bold)),
                   ],
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close_rounded, color: AppColors.textMutedDark),
                 ),
               ],
             ),
-          ),
-          const Divider(color: Colors.white10, height: 1),
+          ],
+        ),
+      ),
+      body: Column(
+        children: [
+          Divider(color: isDark ? Colors.white10 : Colors.black12, height: 1),
 
           // Chat Message List
           Expanded(
@@ -266,7 +246,6 @@ class _AiCoachScreenState extends ConsumerState<AiCoachScreen> {
           ),
         ],
       ),
-    ),
     );
   }
 }
