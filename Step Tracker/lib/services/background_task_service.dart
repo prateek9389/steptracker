@@ -88,20 +88,30 @@ void callbackDispatcher() {
       
       final savedDateId = prefs.getString('last_step_date_id');
       int currentSteps = prefs.getInt('last_step_count') ?? 0;
+      if (savedDateId != dateId) {
+        currentSteps = 0;
+      }
       final stepGoal = prefs.getInt('daily_step_goal') ?? 10000;
 
       // Try to read live pedometer steps if available
       try {
         final ambientDate = prefs.getString('ambient_baseline_date');
+        final event = await Pedometer.stepCountStream.first.timeout(const Duration(seconds: 3));
+        
         if (ambientDate == dateId) {
           final baseline = prefs.getInt('ambient_baseline_steps') ?? 0;
-          final event = await Pedometer.stepCountStream.first.timeout(const Duration(seconds: 3));
           final realSteps = event.steps - baseline;
           if (realSteps > currentSteps) {
             currentSteps = realSteps;
             // Update so the UI reflects this when opened
             await prefs.setInt('last_step_count', currentSteps);
           }
+        } else {
+          // New day and no baseline yet. We must set one now so future background tasks today can track steps!
+          await prefs.setString('ambient_baseline_date', dateId);
+          // If we had steps from earlier today, we can't recover them purely in background without yesterday's EOD value.
+          // But this establishes a baseline for the rest of today.
+          await prefs.setInt('ambient_baseline_steps', event.steps);
         }
       } catch (e) {
         debugPrint("Background pedometer error: $e");

@@ -947,47 +947,12 @@ class HomeTab extends ConsumerWidget {
                   const SizedBox(height: 20),
 
                   // 4. Today's Route Card
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Today's Route",
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : AppColors.textLight,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          if (isTracking) {
-                            Navigator.of(context).pushNamed('/live-tracking');
-                          } else {
-                            ref.read(dashboardTabIndexProvider.notifier).state =
-                                2;
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF1E293B).withOpacity(0.4)
-                                : Colors.white.withOpacity(0.8),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isDark
-                                  ? const Color(0x2BFFFFFF)
-                                  : const Color(0x1F000000),
-                              width: 1,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.arrow_forward_ios_rounded,
-                            size: 10,
-                            color: isDark ? Colors.white70 : Colors.black45,
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    "Today's Route",
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppColors.textLight,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   GestureDetector(
